@@ -1,0 +1,165 @@
+// 초안 스키마 — [[구현 방식]] 4.1 참고. Phase 1 최소 테이블만 정의, 실제 마이그레이션은 이후 이슈에서 진행.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model University {
+  id          Int          @id @default(autoincrement())
+  name        String
+  supported   Boolean      @default(false)
+  departments Department[]
+  profiles    Profile[]
+
+  @@map("universities")
+}
+
+model Department {
+  id           Int          @id @default(autoincrement())
+  universityId Int          @map("university_id")
+  name         String
+  catalogReady Boolean      @default(false) @map("catalog_ready")
+  university   University   @relation(fields: [universityId], references: [id])
+  tracks       Track[]
+  catalogCourses CatalogCourse[]
+  majorProfiles Profile[] @relation("MajorDepartment")
+  minorProfiles Profile[] @relation("MinorDepartment")
+
+  @@map("departments")
+}
+
+model Track {
+  id                   Int      @id @default(autoincrement())
+  departmentId         Int      @map("department_id")
+  name                 String
+  requiredCourseCount  Int      @map("required_course_count")
+  department           Department @relation(fields: [departmentId], references: [id])
+  profiles             Profile[]
+  requirements         CatalogTrackRequirement[]
+
+  @@map("tracks")
+}
+
+model Profile {
+  id                 Int         @id @default(autoincrement())
+  sessionId          String      @unique @map("session_id")
+  admissionYear      Int         @map("admission_year")
+  universityId       Int         @map("university_id")
+  majorDepartmentId  Int         @map("major_department_id")
+  minorDepartmentId  Int?        @map("minor_department_id")
+  trackId            Int?        @map("track_id")
+  syncedAt           DateTime?   @map("synced_at")
+
+  university         University  @relation(fields: [universityId], references: [id])
+  majorDepartment    Department  @relation("MajorDepartment", fields: [majorDepartmentId], references: [id])
+  minorDepartment    Department? @relation("MinorDepartment", fields: [minorDepartmentId], references: [id])
+  track              Track?      @relation(fields: [trackId], references: [id])
+
+  semesters          Semester[]
+  retakeGroups       RetakeGroup[]
+  graduationExtra     GraduationExtra?
+
+  @@map("profiles")
+}
+
+model Semester {
+  id        Int      @id @default(autoincrement())
+  profileId Int      @map("profile_id")
+  label     String
+  sortOrder Int      @map("sort_order")
+  active    Boolean  @default(false)
+
+  profile   Profile  @relation(fields: [profileId], references: [id])
+  courses   Course[]
+
+  @@map("semesters")
+}
+
+enum CourseSource {
+  CRAWL
+  TEXT_PASTE
+  MANUAL
+}
+
+model Course {
+  id                          Int          @id @default(autoincrement())
+  semesterId                  Int          @map("semester_id")
+  name                        String
+  code                        String?
+  category                    String?
+  credit                      Int
+  general                     Boolean      @default(false)
+  substitutionCatalogCourseId Int?         @map("substitution_catalog_course_id")
+  source                      CourseSource @default(MANUAL)
+
+  semester                    Semester       @relation(fields: [semesterId], references: [id])
+  substitution                CatalogCourse? @relation(fields: [substitutionCatalogCourseId], references: [id])
+
+  @@map("courses")
+}
+
+model CatalogCourse {
+  id                 Int      @id @default(autoincrement())
+  departmentId       Int      @map("department_id")
+  name               String
+  code               String
+  category           String
+  credit             Int
+  admissionYearFrom  Int      @map("admission_year_from")
+  admissionYearTo    Int?     @map("admission_year_to")
+
+  department         Department @relation(fields: [departmentId], references: [id])
+  trackRequirements  CatalogTrackRequirement[]
+  substitutedCourses Course[]
+
+  @@map("catalog_courses")
+}
+
+model CatalogTrackRequirement {
+  id              Int  @id @default(autoincrement())
+  trackId         Int  @map("track_id")
+  catalogCourseId Int  @map("catalog_course_id")
+
+  track           Track         @relation(fields: [trackId], references: [id])
+  catalogCourse   CatalogCourse @relation(fields: [catalogCourseId], references: [id])
+
+  @@map("catalog_track_requirements")
+}
+
+model CatalogCatholicCheck {
+  id           Int    @id @default(autoincrement())
+  universityId Int    @map("university_id")
+  key          String
+  label        String
+
+  @@map("catalog_catholic_checks")
+}
+
+model RetakeGroup {
+  id             Int     @id @default(autoincrement())
+  profileId      Int     @map("profile_id")
+  groupKey       String  @map("group_key")
+  name           String
+  retakeAccepted Boolean @default(true) @map("retake_accepted")
+
+  profile        Profile @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, groupKey])
+  @@map("retake_groups")
+}
+
+model GraduationExtra {
+  profileId       Int      @id @map("profile_id")
+  languageScore   Int?     @map("language_score")
+  thesisPass      Boolean  @default(false) @map("thesis_pass")
+  catholicChecks  Json     @default("{}") @map("catholic_checks")
+
+  profile         Profile  @relation(fields: [profileId], references: [id])
+
+  @@map("graduation_extra")
+}
