@@ -17,6 +17,8 @@
     "@nestjs/core": "^10.4.4",
     "@nestjs/platform-express": "^10.4.4",
     "@prisma/client": "^5.19.1",
+    "cheerio": "^1.0.0",
+    "playwright": "^1.47.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
