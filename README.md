@@ -28,9 +28,8 @@ docker compose up -d
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 
-# 4. Prisma 마이그레이션 (최초 1회 / 스키마 변경 시)
-npm run -w apps/api prisma:generate
-npx prisma migrate dev --schema apps/api/prisma/schema.prisma
+# 4. Prisma 마이그레이션 (최초 1회 / 스키마 변경 시 — apps/api/.env를 읽어야 하므로 반드시 apps/api에서 실행)
+cd apps/api && npx prisma migrate dev && cd ../..
 
 # 5. 백엔드 / 프론트 각각 실행 (터미널 2개)
 npm run dev:api    # http://localhost:4000  (헬스체크: GET /health)
