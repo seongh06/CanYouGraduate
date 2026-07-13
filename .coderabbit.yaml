@@ -2,7 +2,11 @@
 # 기본값은 default 브랜치(main)로 향하는 PR만 자동 리뷰한다.
 # 이 프로젝트는 모든 기능 브랜치를 dev로 먼저 PR 보내고, 배포 시점에만 dev -> main PR을 내므로
 # 두 브랜치 모두 자동 리뷰 대상으로 등록한다.
+# 스택 PR(예: feat/7-... -> feat/5-...)은 base가 dev/main이 아닌 다른 feature 브랜치라 위 두 값만으로는
+# "Auto reviews are disabled on base/target branches other than the default branch"로 스킵된다
+# (PR #6, #8에서 실제로 발생). base_branches는 정규식을 지원하므로 feat/* 브랜치도 포함시킨다.
 reviews:
   base_branches:
     - "main"
     - "dev"
+    - "feat/.*"
