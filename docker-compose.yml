@@ -15,8 +15,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      # 로컬에 reborn-redis가 6379를 이미 점유하고 있어 호스트 포트만 6380으로 분리
-      - "6380:6379"
+      - "6379:6379"
 
 volumes:
   db_data:
