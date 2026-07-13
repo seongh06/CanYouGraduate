@@ -26,6 +26,9 @@ export class ProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createProfile(body: CreateProfileBody) {
+    if (!body || typeof body !== 'object') {
+      throw new BadRequestException('요청 본문이 올바르지 않습니다.');
+    }
     if (!isPositiveInt(body.admissionYear)) {
       throw new BadRequestException('입학 학번(admissionYear)은 필수입니다.');
     }
@@ -47,6 +50,7 @@ export class ProfileService {
       majorDepartmentId: body.majorDepartmentId,
       minorDepartmentId: body.minorDepartmentId ?? undefined,
       trackId: body.trackId ?? undefined,
+      effectiveMajorDepartmentId: body.majorDepartmentId,
     });
 
     const profile = await this.prisma.profile.create({
@@ -85,6 +89,9 @@ export class ProfileService {
   }
 
   async updateProfile(profile: Profile, body: UpdateProfileBody, rawBody: Record<string, unknown>) {
+    if (!rawBody || typeof rawBody !== 'object') {
+      throw new BadRequestException('요청 본문이 올바르지 않습니다.');
+    }
     const data: Record<string, number | null> = {};
 
     if ('majorDepartmentId' in rawBody) {
@@ -107,35 +114,53 @@ export class ProfileService {
     }
 
     await this.assertReferencesExist({
+      universityId: profile.universityId,
       majorDepartmentId: data.majorDepartmentId ?? undefined,
       minorDepartmentId: data.minorDepartmentId ?? undefined,
       trackId: data.trackId ?? undefined,
+      effectiveMajorDepartmentId: data.majorDepartmentId ?? profile.majorDepartmentId,
     });
 
     await this.prisma.profile.update({ where: { id: profile.id }, data });
   }
 
   private async assertReferencesExist(refs: {
-    universityId?: number;
+    universityId: number;
     majorDepartmentId?: number;
     minorDepartmentId?: number;
     trackId?: number;
+    effectiveMajorDepartmentId?: number;
   }) {
-    if (refs.universityId !== undefined) {
-      const university = await this.prisma.university.findUnique({ where: { id: refs.universityId } });
-      if (!university) throw new NotFoundException('존재하지 않는 대학 정보입니다.');
-    }
+    const [university, majorDepartment, minorDepartment, track] = await Promise.all([
+      this.prisma.university.findUnique({ where: { id: refs.universityId } }),
+      refs.majorDepartmentId !== undefined
+        ? this.prisma.department.findUnique({ where: { id: refs.majorDepartmentId } })
+        : null,
+      refs.minorDepartmentId !== undefined
+        ? this.prisma.department.findUnique({ where: { id: refs.minorDepartmentId } })
+        : null,
+      refs.trackId !== undefined ? this.prisma.track.findUnique({ where: { id: refs.trackId } }) : null,
+    ]);
+
+    if (!university) throw new NotFoundException('존재하지 않는 대학 정보입니다.');
+
     if (refs.majorDepartmentId !== undefined) {
-      const department = await this.prisma.department.findUnique({ where: { id: refs.majorDepartmentId } });
-      if (!department) throw new NotFoundException('존재하지 않는 학과 정보입니다.');
+      if (!majorDepartment) throw new NotFoundException('존재하지 않는 학과 정보입니다.');
+      if (majorDepartment.universityId !== refs.universityId) {
+        throw new BadRequestException('주전공 학과가 선택한 대학에 속하지 않습니다.');
+      }
     }
     if (refs.minorDepartmentId !== undefined) {
-      const department = await this.prisma.department.findUnique({ where: { id: refs.minorDepartmentId } });
-      if (!department) throw new NotFoundException('존재하지 않는 학과 정보입니다.');
+      if (!minorDepartment) throw new NotFoundException('존재하지 않는 학과 정보입니다.');
+      if (minorDepartment.universityId !== refs.universityId) {
+        throw new BadRequestException('부전공 학과가 선택한 대학에 속하지 않습니다.');
+      }
     }
     if (refs.trackId !== undefined) {
-      const track = await this.prisma.track.findUnique({ where: { id: refs.trackId } });
       if (!track) throw new NotFoundException('존재하지 않는 트랙 정보입니다.');
+      if (refs.effectiveMajorDepartmentId !== undefined && track.departmentId !== refs.effectiveMajorDepartmentId) {
+        throw new BadRequestException('트랙이 선택한 주전공 학과에 속하지 않습니다.');
+      }
     }
   }
 }
