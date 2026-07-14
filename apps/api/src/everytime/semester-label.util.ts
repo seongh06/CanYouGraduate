@@ -12,3 +12,13 @@ export function parseSemesterLabel(label: string): ParsedSemesterLabel | null {
   if (!match) return null;
   return { year: Number(match[1]), term: match[2] };
 }
+
+// 같은 연도 내 학기 진행 순서(1학기 → 하계계절학기 → 2학기 → 동계계절학기).
+export const TERM_RANK: Record<string, number> = {
+  '1학기': 0,
+  하계계절학기: 1,
+  여름계절학기: 1,
+  '2학기': 2,
+  동계계절학기: 3,
+  겨울계절학기: 3,
+};

@@ -7,7 +7,7 @@ import { CourseOfferingMatcherService } from './course-offering-matcher.service'
 import { EverytimeBlockedError, EverytimeCrawlerService, EverytimeParseFailedError } from './everytime-crawler.service';
 import type { CrawledCourse } from './everytime-html-parser';
 import { EverytimeTextParserService } from './everytime-text-parser.service';
-import { parseSemesterLabel } from './semester-label.util';
+import { parseSemesterLabel, TERM_RANK } from './semester-label.util';
 
 // 실제 공유(친구 시간표 보기) URL은 /timetable/ 세그먼트 없이 https://everytime.kr/@코드 형식이다
 // (/timetable/@코드는 로그인한 본인 화면 경로이며 비로그인으로는 404 — 실제 URL로 검증 완료).
@@ -18,6 +18,7 @@ interface CourseInput {
   code: string | null;
   category: string | null;
   credit: number;
+  offeringDepartmentName: string | null;
 }
 
 type CourseSourceValue = 'CRAWL' | 'TEXT_PASTE' | 'MANUAL';
@@ -78,7 +79,7 @@ export class EverytimeService {
   ): Promise<CourseInput[]> {
     const parsedLabel = parseSemesterLabel(semesterLabel);
     if (!parsedLabel) {
-      return courses.map((c) => ({ name: c.name, code: null, category: null, credit: 0 }));
+      return courses.map((c) => ({ name: c.name, code: null, category: null, credit: 0, offeringDepartmentName: null }));
     }
 
     const matchedResults = await this.offeringMatcher.matchMany(universityId, parsedLabel.year, parsedLabel.term, courses);
@@ -86,8 +87,14 @@ export class EverytimeService {
     return courses.map((c, i) => {
       const matched = matchedResults[i];
       return matched
-        ? { name: c.name, code: matched.code, category: matched.category, credit: matched.credit }
-        : { name: c.name, code: null, category: null, credit: 0 };
+        ? {
+            name: c.name,
+            code: matched.code,
+            category: matched.category,
+            credit: matched.credit,
+            offeringDepartmentName: matched.departmentName,
+          }
+        : { name: c.name, code: null, category: null, credit: 0, offeringDepartmentName: null };
     });
   }
 
@@ -104,7 +111,7 @@ export class EverytimeService {
       throw new BadRequestException('인식 가능한 과목 정보를 찾지 못했습니다. 시간표 화면 전체를 복사했는지 확인해주세요.');
     }
 
-    const courseInputs: CourseInput[] = courses.map((c) => ({ ...c, category: null }));
+    const courseInputs: CourseInput[] = courses.map((c) => ({ ...c, category: null, offeringDepartmentName: null }));
     const semester = await this.upsertSemesterWithCourses(profile.id, semesterLabel.trim(), courseInputs, 'TEXT_PASTE', false);
     await this.prisma.profile.update({ where: { id: profile.id }, data: { syncedAt: new Date() } });
 
@@ -114,18 +121,44 @@ export class EverytimeService {
   async listSemesters(profile: Profile) {
     const semesters = await this.prisma.semester.findMany({
       where: { profileId: profile.id },
-      orderBy: { sortOrder: 'desc' },
+      orderBy: { sortOrder: 'asc' },
       include: { courses: { where: { general: false } } },
     });
 
+    // sortOrder는 "크롤링 방문 순서"라 실제 학기 순서와 다를 수 있다 — 크롤러가 시작 URL의 학기를
+    // 무조건 맨 앞에 놓고 나머지는 사이트 DOM 순서대로 방문하는데, 시작 URL이 최신 학기가 아니면
+    // (예: 사용자가 과거 학기 공유 링크를 붙여넣은 경우) sortOrder 순서가 실제 연대순과 어긋난다.
+    // 라벨("2025년 1학기")을 파싱해 진짜 연대순으로 다시 정렬하고, 파싱 안 되는 라벨(텍스트 백업 등
+    // 자유 형식)만 기존 sortOrder 순서를 그대로 유지한다.
+    const withRank = semesters.map((s) => ({ semester: s, parsed: parseSemesterLabel(s.label) }));
+    withRank.sort((a, b) => {
+      if (a.parsed && b.parsed) {
+        if (a.parsed.year !== b.parsed.year) return b.parsed.year - a.parsed.year;
+        return TERM_RANK[b.parsed.term] - TERM_RANK[a.parsed.term];
+      }
+      if (a.parsed) return -1;
+      if (b.parsed) return 1;
+      return a.semester.sortOrder - b.semester.sortOrder;
+    });
+
     return {
-      semesters: semesters.map((s) => ({
+      semesters: withRank.map(({ semester: s }) => ({
         id: s.id,
         label: s.label,
         active: s.active,
         courseCount: s.courses.length,
       })),
     };
+  }
+
+  async deleteSemester(profile: Profile, semesterId: number) {
+    const semester = await this.prisma.semester.findUnique({ where: { id: semesterId } });
+    if (!semester || semester.profileId !== profile.id) {
+      throw new NotFoundException('존재하지 않는 학기 정보입니다.');
+    }
+    // courses는 onDelete: Cascade로 함께 삭제됨. RetakeGroup은 courseId 참조가 아니라 그때그때
+    // 재계산되는 groupKey 기반이라 별도 정리 없이 다음 조회 시 자연히 갱신된다.
+    await this.prisma.semester.delete({ where: { id: semesterId } });
   }
 
   async listCourses(profile: Profile, semesterId: number, includeGeneral: boolean) {
@@ -182,7 +215,11 @@ export class EverytimeService {
           code: c.code,
           category: c.category,
           credit: c.credit,
-          general: c.category ? c.category.includes('교양') : !c.code,
+          offeringDepartmentName: c.offeringDepartmentName,
+          // general은 "교양 포함 여부"가 아니라 "실제 수업이 아닌 커스텀 일정(학생회 회의 등)인지" 여부다 —
+          // 교양 과목도 진짜 수업이라 general: false로 메인 목록에 남아야 한다. FEAT#19 이후 실제 개설강좌와
+          // 매칭되면 교양 과목도 code가 채워지므로, 매칭 실패(=code 없음)만으로 커스텀 일정을 가려낸다.
+          general: !c.code,
           source,
         })),
       });

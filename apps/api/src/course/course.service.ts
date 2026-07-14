@@ -1,10 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Profile } from '@prisma/client';
-import { similarity } from '../common/levenshtein.util';
+import { groupDuplicateCourses } from '../common/retake-grouping.util';
 import { findOrCreateSemester } from '../common/semester.util';
 import { PrismaService } from '../prisma/prisma.service';
-
-const DUPLICATE_MERGE_THRESHOLD = 0.85;
 
 export interface CreateCourseBody {
   semesterLabel?: string;
@@ -104,29 +102,16 @@ export class CourseService {
       orderBy: [{ semester: { sortOrder: 'asc' } }, { id: 'asc' }],
     });
 
-    // 1차: 과목명 exact match로 그룹핑
-    const exactGroups = new Map<string, number[]>();
-    for (const c of courses) {
-      const ids = exactGroups.get(c.name) ?? [];
-      ids.push(c.id);
-      exactGroups.set(c.name, ids);
-    }
-
-    // 2차: 오탈자 대응을 위해 Levenshtein 유사도가 높은 그룹끼리 병합(첫 등장 이름을 대표명으로 채택)
-    const mergedGroups = new Map<string, number[]>();
-    for (const [name, ids] of exactGroups) {
-      const canonical = [...mergedGroups.keys()].find((existing) => similarity(name, existing) >= DUPLICATE_MERGE_THRESHOLD);
-      const key = canonical ?? name;
-      mergedGroups.set(key, [...(mergedGroups.get(key) ?? []), ...ids]);
-    }
-
-    const duplicateEntries = [...mergedGroups.entries()].filter(([, ids]) => ids.length > 1);
+    // groupKey는 과목명이 아니라 그룹 내 가장 이른(=가장 최근 학기의) 과목 courseId로 고정한다 —
+    // 과목명이 나중에 바뀌거나(수정 API) 병합 그룹이 재구성돼도 동일한 RetakeGroup 로우를 계속 참조하기 위함.
+    // graduation 계산 엔진도 동일한 groupDuplicateCourses를 사용해 같은 groupKey를 계산한다.
+    const groups = groupDuplicateCourses(courses);
+    const duplicateEntries = [...groups.entries()].filter(([, list]) => list.length > 1);
 
     const duplicateGroups = await Promise.all(
-      duplicateEntries.map(async ([name, courseIds]) => {
-        // groupKey는 과목명이 아니라 그룹 내 가장 이른 과목의 courseId로 고정한다 — 과목명이 나중에
-        // 바뀌거나(수정 API) 병합 그룹이 재구성돼도 동일한 RetakeGroup 로우를 계속 참조하기 위함.
-        const groupKey = String(courseIds[0]);
+      duplicateEntries.map(async ([groupKey, list]) => {
+        const name = list[0].name;
+        const courseIds = list.map((c) => c.id);
         const retakeGroup = await this.prisma.retakeGroup.upsert({
           where: { profileId_groupKey: { profileId: profile.id, groupKey } },
           update: { name },

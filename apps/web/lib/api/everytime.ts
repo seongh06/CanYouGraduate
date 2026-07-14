@@ -44,3 +44,7 @@ export function listCourses(sessionId: string, semesterId: number, includeGenera
     { sessionId },
   );
 }
+
+export function deleteSemester(sessionId: string, semesterId: number) {
+  return apiFetch<null>(`/api/everytime/semesters/${semesterId}`, { method: 'DELETE', sessionId });
+}
