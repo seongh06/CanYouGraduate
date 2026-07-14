@@ -49,7 +49,8 @@ export default function TimetablePage() {
     queryClient.invalidateQueries({ queryKey: ['everytime', 'courses', sessionId, selectedSemesterId] });
 
   const addBackMutation = useMutation({
-    mutationFn: (courseId: number) => updateCourse(sessionId as string, courseId, { general: false }),
+    mutationFn: ({ courseId, category, credit }: { courseId: number; category: string; credit: number }) =>
+      updateCourse(sessionId as string, courseId, { general: false, category, credit }),
     onSuccess: invalidateCourses,
   });
   const deleteMutation = useMutation({
@@ -81,7 +82,7 @@ export default function TimetablePage() {
             <CourseList semesterLabel={currentSemester?.label ?? ''} courses={courses} />
             <FilteredSchedulePanel
               courses={courses}
-              onAddBack={(id) => addBackMutation.mutate(id)}
+              onAddBack={(id, input) => addBackMutation.mutate({ courseId: id, ...input })}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
           </div>

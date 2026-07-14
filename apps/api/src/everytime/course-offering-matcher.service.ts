@@ -9,6 +9,7 @@ export interface MatchedCourseOffering {
   credit: number;
   category: string;
   departmentName: string;
+  foreignLanguageType: string | null;
 }
 
 @Injectable()
@@ -40,7 +41,13 @@ export class CourseOfferingMatcherService {
       const byProfessor = course.professor ? candidates.filter((o) => o.professor === course.professor) : [];
       const chosen = byProfessor[0] ?? candidates[0];
 
-      return { code: chosen.code, credit: chosen.credit, category: chosen.category, departmentName: chosen.departmentName };
+      return {
+        code: chosen.code,
+        credit: chosen.credit,
+        category: chosen.category,
+        departmentName: chosen.departmentName,
+        foreignLanguageType: chosen.foreignLanguageType,
+      };
     });
   }
 }

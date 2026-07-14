@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ParsedAcademicRequirement, parseAcademicRequirementHtml } from './academic-requirement-parser';
 import { CrawledCatalogCourse, parseCurriculumHtml } from './catalog-curriculum-parser';
 
 export class CatalogCrawlFailedError extends Error {}
@@ -44,5 +45,34 @@ export class CatalogCrawlerService {
     }
 
     return courses;
+  }
+
+  // 학사정보(academic.do) — 졸업요건(총학점/학점구성/종합시험/영어 대체규정). curriculum.do와 URL
+  // 패턴이 동일해 urlPattern 분기 로직을 그대로 재사용한다.
+  async crawlAcademicRequirement(department: CrawlableDepartment): Promise<ParsedAcademicRequirement> {
+    switch (department.urlPattern) {
+      case 'other-campus':
+        throw new CatalogCrawlFailedError(`성의/성신교정 학과는 자동 크롤링 대상이 아닙니다: ${department.domainSlug}`);
+      case 'subdirectory':
+        return this.fetchAcademicRequirement(`${department.baseUrl.replace(/\/index\.do$/, '')}/course/academic.do`);
+      case 'standard':
+      default:
+        return this.fetchAcademicRequirement(`${department.baseUrl}/${department.domainSlug}/course/academic.do`);
+    }
+  }
+
+  private async fetchAcademicRequirement(url: string): Promise<ParsedAcademicRequirement> {
+    const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } }).catch(() => null);
+    if (!response || !response.ok) {
+      throw new CatalogCrawlFailedError(`학사정보 페이지에 접근할 수 없습니다: ${url}`);
+    }
+
+    const html = await response.text();
+    const parsed = parseAcademicRequirementHtml(html);
+    if (parsed.totalCreditMin === null && parsed.creditBreakdown === null && parsed.comprehensiveExam === null) {
+      throw new CatalogCrawlFailedError(`학사정보 표를 찾을 수 없습니다: ${url}`);
+    }
+
+    return parsed;
   }
 }

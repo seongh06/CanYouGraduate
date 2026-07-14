@@ -13,12 +13,21 @@ import { parseSemesterLabel, TERM_RANK } from './semester-label.util';
 // (/timetable/@코드는 로그인한 본인 화면 경로이며 비로그인으로는 404 — 실제 URL로 검증 완료).
 const EVERYTIME_URL_PATTERN = /^https:\/\/everytime\.kr\/@[\w-]+/;
 
+// 개설과목 데이터의 이수구분은 "1전공기준"(그 과목을 개설한 학과 자신의 커리큘럼 기준)으로만
+// 표기된다 — 학생이 그 학과를 제2전공(복수전공)으로 선택했어도 라벨은 그대로 "제1전공선택"으로
+// 내려온다. 사용자 확인(실사용 중 발견): 개설 학과가 본인의 제2전공과 일치하면 라벨을 바로잡는다.
+const SECOND_MAJOR_CATEGORY_REMAP: Record<string, string> = {
+  제1전공선택: '제2전공선택',
+  제1전공필수: '제2전공필수',
+};
+
 interface CourseInput {
   name: string;
   code: string | null;
   category: string | null;
   credit: number;
   offeringDepartmentName: string | null;
+  foreignLanguageType: string | null;
 }
 
 type CourseSourceValue = 'CRAWL' | 'TEXT_PASTE' | 'MANUAL';
@@ -55,7 +64,7 @@ export class EverytimeService {
       const semesters = await this.crawler.crawlAllSemesters(url);
       for (let i = 0; i < semesters.length; i += 1) {
         const semester = semesters[i];
-        const courseInputs = await this.matchCourseOfferings(profile.universityId, semester.label, semester.courses);
+        const courseInputs = await this.matchCourseOfferings(profile, semester.label, semester.courses);
         await this.upsertSemesterWithCourses(profile.id, semester.label, courseInputs, 'CRAWL', i === 0);
       }
       await this.prisma.profile.update({ where: { id: profile.id }, data: { syncedAt: new Date() } });
@@ -73,28 +82,58 @@ export class EverytimeService {
   // 트리니티 개설과목 리스트(CourseOffering, 수동 임포트)와 과목명+교수명으로 대조해 채워 넣는다.
   // 학기 라벨을 못 읽거나(텍스트 백업 등) 매칭에 실패하면 기존처럼 null로 남겨 needsSubstitution 흐름으로 넘긴다.
   private async matchCourseOfferings(
-    universityId: number,
+    profile: Profile,
     semesterLabel: string,
     courses: CrawledCourse[],
   ): Promise<CourseInput[]> {
     const parsedLabel = parseSemesterLabel(semesterLabel);
     if (!parsedLabel) {
-      return courses.map((c) => ({ name: c.name, code: null, category: null, credit: 0, offeringDepartmentName: null }));
+      return courses.map((c) => ({
+        name: c.name,
+        code: null,
+        category: null,
+        credit: 0,
+        offeringDepartmentName: null,
+        foreignLanguageType: null,
+      }));
     }
 
-    const matchedResults = await this.offeringMatcher.matchMany(universityId, parsedLabel.year, parsedLabel.term, courses);
+    const matchedResults = await this.offeringMatcher.matchMany(
+      profile.universityId,
+      parsedLabel.year,
+      parsedLabel.term,
+      courses,
+    );
+    const secondMajorDept = profile.secondMajorDepartmentId
+      ? await this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
+      : null;
 
     return courses.map((c, i) => {
       const matched = matchedResults[i];
-      return matched
-        ? {
-            name: c.name,
-            code: matched.code,
-            category: matched.category,
-            credit: matched.credit,
-            offeringDepartmentName: matched.departmentName,
-          }
-        : { name: c.name, code: null, category: null, credit: 0, offeringDepartmentName: null };
+      if (!matched) {
+        return {
+          name: c.name,
+          code: null,
+          category: null,
+          credit: 0,
+          offeringDepartmentName: null,
+          foreignLanguageType: null,
+        };
+      }
+
+      const category =
+        secondMajorDept && matched.departmentName === secondMajorDept.name && SECOND_MAJOR_CATEGORY_REMAP[matched.category]
+          ? SECOND_MAJOR_CATEGORY_REMAP[matched.category]
+          : matched.category;
+
+      return {
+        name: c.name,
+        code: matched.code,
+        category,
+        credit: matched.credit,
+        offeringDepartmentName: matched.departmentName,
+        foreignLanguageType: matched.foreignLanguageType,
+      };
     });
   }
 
@@ -111,7 +150,12 @@ export class EverytimeService {
       throw new BadRequestException('인식 가능한 과목 정보를 찾지 못했습니다. 시간표 화면 전체를 복사했는지 확인해주세요.');
     }
 
-    const courseInputs: CourseInput[] = courses.map((c) => ({ ...c, category: null, offeringDepartmentName: null }));
+    const courseInputs: CourseInput[] = courses.map((c) => ({
+      ...c,
+      category: null,
+      offeringDepartmentName: null,
+      foreignLanguageType: null,
+    }));
     const semester = await this.upsertSemesterWithCourses(profile.id, semesterLabel.trim(), courseInputs, 'TEXT_PASTE', false);
     await this.prisma.profile.update({ where: { id: profile.id }, data: { syncedAt: new Date() } });
 
@@ -190,6 +234,7 @@ export class EverytimeService {
         category: c.category,
         credit: c.credit,
         general: c.general,
+        foreignLanguageType: c.foreignLanguageType,
         isDuplicate: (nameCounts.get(c.name) ?? 0) > 1,
         needsSubstitution: !c.general && !c.code && !c.substitution,
         substitutionName: c.substitution?.name ?? null,
@@ -216,6 +261,7 @@ export class EverytimeService {
           category: c.category,
           credit: c.credit,
           offeringDepartmentName: c.offeringDepartmentName,
+          foreignLanguageType: c.foreignLanguageType,
           // general은 "교양 포함 여부"가 아니라 "실제 수업이 아닌 커스텀 일정(학생회 회의 등)인지" 여부다 —
           // 교양 과목도 진짜 수업이라 general: false로 메인 목록에 남아야 한다. FEAT#19 이후 실제 개설강좌와
           // 매칭되면 교양 과목도 code가 채워지므로, 매칭 실패(=code 없음)만으로 커스텀 일정을 가려낸다.

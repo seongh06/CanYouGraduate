@@ -11,7 +11,8 @@
     "postinstall": "prisma generate",
     "seed": "ts-node prisma/seed.ts",
     "crawl:catalog": "ts-node scripts/crawl-catalog.ts",
-    "import:offerings": "ts-node scripts/import-course-offerings.ts"
+    "import:offerings": "ts-node scripts/import-course-offerings.ts",
+    "crawl:academic": "ts-node scripts/crawl-academic-requirements.ts"
   },
   "dependencies": {
     "@canyougraduate/shared-types": "*",
