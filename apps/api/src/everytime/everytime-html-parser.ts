@@ -18,25 +18,17 @@ export interface ParsedTimetablePage {
   semesterLinks: CrawledSemesterLink[];
 }
 
-// ⚠️ 실제 에브리타임 공유 시간표 페이지(https://everytime.kr/timetable/@코드)의 DOM 구조를
-// 이 환경에서는 라이브 URL로 검증할 수 없었다(유효한 공유 코드가 없음). 아래 셀렉터는
-// 공개적으로 알려진 에브리타임 마크업 관례를 참고한 최선의 추정치이며, 실제 공유 URL로
-// 한 번 크롤링해보고 맞지 않으면 이 파일의 SELECTORS만 고치면 되도록 격리해뒀다.
+// 실제 공유 시간표 페이지(https://everytime.kr/@코드, "친구 시간표 보기")를 Playwright로
+// 렌더링해 확인한 DOM 구조 기준. 이 페이지엔 과목코드/학점 정보가 아예 없어서(교수/강의실만
+// 표시됨) code/credit은 항상 null/0으로 남고, 이후 needsSubstitution 플로우로 사용자가
+// 직접 요람 과목과 매칭한다.
 const SELECTORS = {
-  courseItem: '.tablebody .items .item',
-  courseName: '.subject',
-  courseInfo: '.info',
-  semesterLinkList: '.timetable-list li a, #periodList li a',
+  courseItem: '.tablebody .subject',
+  courseName: 'h3',
+  courseInfo: 'p',
+  semesterLinkList: 'aside .menu ol li a',
+  activeSemesterLabel: 'aside .menu ol li.active a',
 };
-
-function extractCreditAndCode(infoText: string): { code: string | null; credit: number } {
-  const codeMatch = /([A-Z]{2,4}\d{3,4})/.exec(infoText);
-  const creditMatch = /(\d+)\s*학점/.exec(infoText);
-  return {
-    code: codeMatch ? codeMatch[1] : null,
-    credit: creditMatch ? Number(creditMatch[1]) : 0,
-  };
-}
 
 export function parseTimetableHtml(html: string, baseUrl: string): ParsedTimetablePage {
   const $ = cheerio.load(html);
@@ -44,12 +36,12 @@ export function parseTimetableHtml(html: string, baseUrl: string): ParsedTimetab
   const courses: CrawledCourse[] = [];
   $(SELECTORS.courseItem).each((_, el) => {
     const name = $(el).find(SELECTORS.courseName).first().text().trim();
+    // 커스텀 일정(이모지 제목 등)은 교수/강의실이 항상 비어 있어 실제 과목과 구분됨
     const infoText = $(el).find(SELECTORS.courseInfo).text().trim();
-    if (!name) return;
-    const { code, credit } = extractCreditAndCode(infoText);
+    if (!name || !infoText) return;
     // 같은 과목이 요일이 다른 여러 시간 블록으로 나뉘어 렌더링되는 경우가 있어 이름 기준 중복 제거
     if (courses.some((c) => c.name === name)) return;
-    courses.push({ name, code, category: null, credit });
+    courses.push({ name, code: null, category: null, credit: 0 });
   });
 
   const semesterLinks: CrawledSemesterLink[] = [];
@@ -63,7 +55,7 @@ export function parseTimetableHtml(html: string, baseUrl: string): ParsedTimetab
     }
   });
 
-  const semesterLabel = $('title').text().trim() || null;
+  const semesterLabel = $(SELECTORS.activeSemesterLabel).first().text().trim() || null;
 
   return { semesterLabel, courses, semesterLinks };
 }

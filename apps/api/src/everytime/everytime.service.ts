@@ -6,7 +6,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EverytimeBlockedError, EverytimeCrawlerService, EverytimeParseFailedError } from './everytime-crawler.service';
 import { EverytimeTextParserService } from './everytime-text-parser.service';
 
-const EVERYTIME_URL_PATTERN = /^https:\/\/everytime\.kr\/timetable\/@[\w-]+/;
+// 실제 공유(친구 시간표 보기) URL은 /timetable/ 세그먼트 없이 https://everytime.kr/@코드 형식이다
+// (/timetable/@코드는 로그인한 본인 화면 경로이며 비로그인으로는 404 — 실제 URL로 검증 완료).
+const EVERYTIME_URL_PATTERN = /^https:\/\/everytime\.kr\/@[\w-]+/;
 
 interface CourseInput {
   name: string;

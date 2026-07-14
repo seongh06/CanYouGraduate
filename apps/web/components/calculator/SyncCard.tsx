@@ -39,11 +39,11 @@ export function SyncCard({ synced, syncing, onSyncStart }: SyncCardProps) {
     <Card className="mb-5">
       <div className="mb-1 text-[15px] font-bold">에브리타임 시간표 연동</div>
       <div className="mb-4 text-[13px] text-brand-text-muted">
-        시간표 URL을 붙여넣으면 좌측 메뉴의 학기 목록을 자동으로 인식해 모든 학기의 수강 내역을 가져와요.
+        에브리타임 앱에서 시간표 &rarr; 공유하기로 복사한 URL을 붙여넣으면, 좌측 메뉴의 학기 목록을 자동으로 인식해 모든 학기의 수강 내역을 가져와요.
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
         <input
-          placeholder="https://everytime.kr/timetable/@..."
+          placeholder="https://everytime.kr/@..."
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           disabled={synced}

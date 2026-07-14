@@ -39,7 +39,8 @@ export class EverytimeCrawlerService {
         { label: first.semesterLabel ?? '현재 학기', sourceUrl: startUrl, courses: first.courses },
       ];
 
-      const remainingLinks = first.semesterLinks.slice(0, MAX_SEMESTERS - 1);
+      // semesterLinks엔 지금 보고 있는 학기 자신의 링크도 포함되어 있어 중복 방문을 막기 위해 제외
+      const remainingLinks = first.semesterLinks.filter((link) => link.url !== startUrl).slice(0, MAX_SEMESTERS - 1);
       for (const link of remainingLinks) {
         await sleep(BETWEEN_REQUEST_DELAY_MS);
         try {
