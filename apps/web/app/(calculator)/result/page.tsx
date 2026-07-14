@@ -1,9 +1,117 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
+import { ApiError } from '../../../lib/api/client';
+import {
+  calculateGraduation,
+  getGraduationRequirements,
+  updateCatholicCheck,
+  updateLanguageScore,
+  updateThesis,
+} from '../../../lib/api/graduation';
+import { useSession } from '../../../lib/session';
+import { CatholicChecklist } from '../../../components/graduation/CatholicChecklist';
+import { CreditBreakdownList } from '../../../components/graduation/CreditBreakdownList';
+import { LanguageAndThesisCard } from '../../../components/graduation/LanguageAndThesisCard';
+import { RequirementInfoPanel } from '../../../components/graduation/RequirementInfoPanel';
+import { SummaryGauge } from '../../../components/graduation/SummaryGauge';
 import { Card } from '../../../components/ui/Card';
 
 export default function ResultPage() {
+  const { sessionId } = useSession();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['graduation', 'calculate', sessionId],
+    queryFn: () => calculateGraduation(sessionId as string),
+    enabled: !!sessionId,
+    retry: false,
+  });
+
+  const requirementsQuery = useQuery({
+    queryKey: ['graduation', 'requirements', sessionId],
+    queryFn: () => getGraduationRequirements(sessionId as string),
+    enabled: !!sessionId,
+    retry: false,
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['graduation', 'calculate', sessionId] });
+
+  const checkMutation = useMutation({
+    mutationFn: ({ key, checked }: { key: string; checked: boolean }) =>
+      updateCatholicCheck(sessionId as string, key, checked),
+    onSuccess: invalidate,
+  });
+  const languageMutation = useMutation({
+    mutationFn: ({ examType, score }: { examType: string; score: number }) =>
+      updateLanguageScore(sessionId as string, examType, score),
+    onSuccess: invalidate,
+  });
+  const thesisMutation = useMutation({
+    mutationFn: (pass: boolean) => updateThesis(sessionId as string, pass),
+    onSuccess: invalidate,
+  });
+
+  if (query.isLoading) {
+    return (
+      <Card>
+        <div className="text-sm font-bold">계산 중이에요...</div>
+      </Card>
+    );
+  }
+
+  if (query.isError) {
+    const error = query.error;
+    const status = error instanceof ApiError ? error.status : null;
+    const message = error instanceof Error ? error.message : '계산에 실패했습니다.';
+
+    if (status === 409) {
+      return (
+        <Card>
+          <div className="mb-2 text-sm font-bold text-brand-error">아직 계산할 수 없어요</div>
+          <div className="mb-4 text-[13px] text-brand-text-muted">{message}</div>
+          <Link href="/verify" className="text-[13px] font-bold text-brand-blue">
+            검증 & 설정으로 돌아가기 →
+          </Link>
+        </Card>
+      );
+    }
+
+    return (
+      <Card>
+        <div className="mb-2 text-sm font-bold text-brand-error">계산에 실패했어요</div>
+        <div className="text-[13px] text-brand-text-muted">{message}</div>
+      </Card>
+    );
+  }
+
+  const data = query.data!;
+
   return (
-    <Card>
-      <div className="text-sm font-bold">STEP3 대시보드는 다음 이슈에서 구현됩니다.</div>
-    </Card>
+    <div className="pb-10">
+      <SummaryGauge
+        totalCredits={data.totalCredits}
+        totalCreditMin={data.totalCreditMin}
+        remainingCredits={data.remainingCredits}
+        completionPercent={data.completionPercent}
+      />
+      <CreditBreakdownList items={data.creditBreakdown} />
+      <RequirementInfoPanel comprehensiveExam={data.comprehensiveExam} substitutionRules={data.substitutionRules} />
+      <LanguageAndThesisCard
+        languageScoreStandard={requirementsQuery.data?.languageScoreStandard ?? null}
+        languageScore={data.languageScore}
+        languageExamType={data.languageExamType}
+        languageScorePass={data.languageScorePass}
+        thesisPass={data.thesisPass}
+        thesisOptional={data.thesisOptional}
+        onSubmitLanguageScore={(examType, score) => languageMutation.mutate({ examType, score })}
+        onToggleThesis={(pass) => thesisMutation.mutate(pass)}
+      />
+      <CatholicChecklist
+        checks={data.catholicChecks}
+        onToggle={(key, checked) => checkMutation.mutate({ key, checked })}
+      />
+    </div>
   );
 }

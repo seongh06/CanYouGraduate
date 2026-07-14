@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import type { Profile } from '@prisma/client';
 import { ApiMessageResult } from '../common/api-message.result';
 import { CurrentProfile } from '../session/current-profile.decorator';
@@ -45,5 +45,12 @@ export class EverytimeController {
   ) {
     const include = includeGeneral === undefined ? true : includeGeneral !== 'false';
     return this.everytimeService.listCourses(profile, semesterId, include);
+  }
+
+  @Delete('semesters/:semesterId')
+  @HttpCode(200)
+  async deleteSemester(@CurrentProfile() profile: Profile, @Param('semesterId', ParseIntPipe) semesterId: number) {
+    await this.everytimeService.deleteSemester(profile, semesterId);
+    return new ApiMessageResult('학기가 삭제되었습니다.');
   }
 }

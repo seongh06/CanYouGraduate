@@ -7,7 +7,7 @@ import { FilteredSchedulePanel } from '../../../components/calculator/FilteredSc
 import { SemesterList } from '../../../components/calculator/SemesterList';
 import { SyncCard } from '../../../components/calculator/SyncCard';
 import { deleteCourse, updateCourse } from '../../../lib/api/courses';
-import { listCourses, listSemesters } from '../../../lib/api/everytime';
+import { deleteSemester, listCourses, listSemesters } from '../../../lib/api/everytime';
 import { useSession } from '../../../lib/session';
 import { useCalculatorStore } from '../../../store/calculator-store';
 
@@ -57,13 +57,26 @@ export default function TimetablePage() {
     onSuccess: invalidateCourses,
   });
 
+  const deleteSemesterMutation = useMutation({
+    mutationFn: (semesterId: number) => deleteSemester(sessionId as string, semesterId),
+    onSuccess: (_data, semesterId) => {
+      if (selectedSemesterId === semesterId) selectSemester(0); // 0은 존재하지 않는 id — 아래 effect가 다음 학기로 다시 선택
+      queryClient.invalidateQueries({ queryKey: ['everytime', 'semesters', sessionId] });
+    },
+  });
+
   return (
     <>
       <SyncCard synced={semesters.length > 0} syncing={syncing} onSyncStart={() => setSyncing(true)} />
 
       {semesters.length > 0 && (
         <div className="flex flex-col gap-3.5 sm:grid sm:grid-cols-[220px_1fr] sm:items-start sm:gap-5">
-          <SemesterList semesters={semesters} selectedSemesterId={selectedSemesterId} onSelect={selectSemester} />
+          <SemesterList
+            semesters={semesters}
+            selectedSemesterId={selectedSemesterId}
+            onSelect={selectSemester}
+            onDelete={(id) => deleteSemesterMutation.mutate(id)}
+          />
           <div className="min-w-0">
             <CourseList semesterLabel={currentSemester?.label ?? ''} courses={courses} />
             <FilteredSchedulePanel

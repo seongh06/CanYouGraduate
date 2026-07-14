@@ -10,13 +10,13 @@ datasource db {
 }
 
 model University {
-  id            Int                    @id @default(autoincrement())
-  name          String
-  supported     Boolean                @default(false)
-  departments   Department[]
-  colleges      College[]
-  profiles      Profile[]
-  catalogChecks CatalogCatholicCheck[]
+  id              Int                    @id @default(autoincrement())
+  name            String
+  supported       Boolean                @default(false)
+  departments     Department[]
+  colleges        College[]
+  profiles        Profile[]
+  catalogChecks   CatalogCatholicCheck[]
   courseOfferings CourseOffering[]
 
   @@map("universities")
@@ -146,6 +146,10 @@ model Course {
   general                     Boolean      @default(false)
   substitutionCatalogCourseId Int?         @map("substitution_catalog_course_id")
   source                      CourseSource @default(MANUAL)
+  // CourseOffering 매칭 시점의 "개설전공(과)" 원문(FEAT#19). 졸업계산에서 중핵교양필수 과목이
+  // 학생 본인 전공 소속으로 개설된 경우 전공학점으로 재분류하는 데 쓰인다(Department FK 아님,
+  // CourseOffering과 동일하게 원문 텍스트로만 보관 — 요청 시점 매칭이라 학과가 나중에 바뀌어도 안전).
+  offeringDepartmentName      String?      @map("offering_department_name")
 
   semester     Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   // 대체인정 연결된 요람 과목이 삭제되어도 수강기록 자체는 남기고 연결만 해제한다.
@@ -245,10 +249,13 @@ model RetakeGroup {
 }
 
 model GraduationExtra {
-  profileId      Int     @id @map("profile_id")
-  languageScore  Int?    @map("language_score")
-  thesisPass     Boolean @default(false) @map("thesis_pass")
-  catholicChecks Json    @default("{}") @map("catholic_checks")
+  profileId        Int     @id @map("profile_id")
+  languageScore    Int?    @map("language_score")
+  // languageScoreStandard가 학과마다 시험 종류(TOEIC/TOEFL_IBT/NEW_TEPS/JPT/IELTS 등)가 다른 JSON이라
+  // 어떤 시험 점수인지 같이 저장해야 기준점 비교가 가능하다.
+  languageExamType String? @map("language_exam_type")
+  thesisPass       Boolean @default(false) @map("thesis_pass")
+  catholicChecks   Json    @default("{}") @map("catholic_checks")
 
   profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
