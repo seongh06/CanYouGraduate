@@ -36,9 +36,22 @@ export class UniversityService {
     const departments = await this.prisma.department.findMany({
       where: { universityId, ...(collegeId !== undefined ? { collegeId } : {}) },
       orderBy: { id: 'asc' },
-      select: { id: true, name: true, catalogReady: true },
+      select: {
+        id: true,
+        name: true,
+        catalogReady: true,
+        college: { select: { id: true, name: true } },
+      },
     });
-    return { departments };
+    return {
+      departments: departments.map((d) => ({
+        id: d.id,
+        name: d.name,
+        catalogReady: d.catalogReady,
+        collegeId: d.college?.id ?? null,
+        collegeName: d.college?.name ?? '기타',
+      })),
+    };
   }
 
   async listTracks(departmentId: number) {

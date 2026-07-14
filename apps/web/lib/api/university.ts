@@ -16,6 +16,8 @@ export interface DepartmentItem {
   id: number;
   name: string;
   catalogReady: boolean;
+  collegeId: number | null;
+  collegeName: string;
 }
 
 export interface TrackItem {

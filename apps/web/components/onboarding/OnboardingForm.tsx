@@ -14,13 +14,11 @@ export function OnboardingForm() {
   const [admissionYear, setAdmissionYear] = useState('');
   const [universityId, setUniversityId] = useState<number | null>(null);
 
-  const [majorCollegeId, setMajorCollegeId] = useState<number | null>(null);
   const [majorDepartmentId, setMajorDepartmentId] = useState<number | null>(null);
   const [majorTrackId, setMajorTrackId] = useState<number | null>(null);
 
   const [programType, setProgramType] = useState<ProgramType>('DEEPENED_MAJOR');
 
-  const [secondMajorCollegeId, setSecondMajorCollegeId] = useState<number | null>(null);
   const [secondMajorDepartmentId, setSecondMajorDepartmentId] = useState<number | null>(null);
   const [secondMajorTrackId, setSecondMajorTrackId] = useState<number | null>(null);
 
@@ -86,10 +84,8 @@ export function OnboardingForm() {
           value={universityId ?? ''}
           onChange={(e) => {
             setUniversityId(e.target.value ? Number(e.target.value) : null);
-            setMajorCollegeId(null);
             setMajorDepartmentId(null);
             setMajorTrackId(null);
-            setSecondMajorCollegeId(null);
             setSecondMajorDepartmentId(null);
             setSecondMajorTrackId(null);
             setMinorDepartmentId(null);
@@ -110,10 +106,8 @@ export function OnboardingForm() {
       <MajorPicker
         labelPrefix="제1전공"
         universityId={universityId}
-        collegeId={majorCollegeId}
         departmentId={majorDepartmentId}
         trackId={majorTrackId}
-        onCollegeChange={setMajorCollegeId}
         onDepartmentChange={setMajorDepartmentId}
         onTrackChange={setMajorTrackId}
       />
@@ -150,10 +144,8 @@ export function OnboardingForm() {
           <MajorPicker
             labelPrefix="제2전공"
             universityId={universityId}
-            collegeId={secondMajorCollegeId}
             departmentId={secondMajorDepartmentId}
             trackId={secondMajorTrackId}
-            onCollegeChange={setSecondMajorCollegeId}
             onDepartmentChange={setSecondMajorDepartmentId}
             onTrackChange={setSecondMajorTrackId}
           />

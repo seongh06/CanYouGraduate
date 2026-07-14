@@ -1,15 +1,14 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { listColleges, listDepartments, listTracks } from '../../lib/api/university';
+import { listDepartments, listTracks } from '../../lib/api/university';
 
 interface MajorPickerProps {
   labelPrefix: string;
   universityId: number | null;
-  collegeId: number | null;
   departmentId: number | null;
   trackId: number | null;
-  onCollegeChange: (collegeId: number | null) => void;
   onDepartmentChange: (departmentId: number | null) => void;
   onTrackChange: (trackId: number | null) => void;
 }
@@ -17,24 +16,27 @@ interface MajorPickerProps {
 export function MajorPicker({
   labelPrefix,
   universityId,
-  collegeId,
   departmentId,
   trackId,
-  onCollegeChange,
   onDepartmentChange,
   onTrackChange,
 }: MajorPickerProps) {
-  const collegesQuery = useQuery({
-    queryKey: ['colleges', universityId],
-    queryFn: () => listColleges(universityId as number),
+  const departmentsQuery = useQuery({
+    queryKey: ['departments', universityId, 'all'],
+    queryFn: () => listDepartments(universityId as number),
     enabled: universityId !== null,
   });
 
-  const departmentsQuery = useQuery({
-    queryKey: ['departments', universityId, collegeId],
-    queryFn: () => listDepartments(universityId as number, collegeId ?? undefined),
-    enabled: universityId !== null && collegeId !== null,
-  });
+  const departmentsByCollege = useMemo(() => {
+    const departments = departmentsQuery.data?.departments ?? [];
+    const groups = new Map<string, typeof departments>();
+    for (const d of departments) {
+      const list = groups.get(d.collegeName) ?? [];
+      list.push(d);
+      groups.set(d.collegeName, list);
+    }
+    return Array.from(groups.entries());
+  }, [departmentsQuery.data]);
 
   const tracksQuery = useQuery({
     queryKey: ['tracks', departmentId],
@@ -47,27 +49,6 @@ export function MajorPicker({
   return (
     <div className="mb-3 flex flex-col gap-3">
       <label className="block text-xs font-bold text-brand-text-muted">
-        {labelPrefix} 계열
-        <select
-          value={collegeId ?? ''}
-          onChange={(e) => {
-            onCollegeChange(e.target.value ? Number(e.target.value) : null);
-            onDepartmentChange(null);
-            onTrackChange(null);
-          }}
-          disabled={universityId === null}
-          className="mt-1 h-11 w-full rounded-xl border-[1.5px] border-brand-border bg-[#F8F9FA] px-3 text-sm outline-none disabled:opacity-50"
-        >
-          <option value="">선택해주세요</option>
-          {collegesQuery.data?.colleges.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="block text-xs font-bold text-brand-text-muted">
         {labelPrefix} 학과
         <select
           value={departmentId ?? ''}
@@ -75,14 +56,18 @@ export function MajorPicker({
             onDepartmentChange(e.target.value ? Number(e.target.value) : null);
             onTrackChange(null);
           }}
-          disabled={collegeId === null}
+          disabled={universityId === null}
           className="mt-1 h-11 w-full rounded-xl border-[1.5px] border-brand-border bg-[#F8F9FA] px-3 text-sm outline-none disabled:opacity-50"
         >
           <option value="">선택해주세요</option>
-          {departmentsQuery.data?.departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
+          {departmentsByCollege.map(([collegeName, departments]) => (
+            <optgroup key={collegeName} label={collegeName}>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>
