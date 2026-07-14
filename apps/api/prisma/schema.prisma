@@ -52,6 +52,7 @@ model Department {
   catalogCourses         CatalogCourse[]
   graduationRequirements CatalogGraduationRequirement[]
   majorProfiles          Profile[]                      @relation("MajorDepartment")
+  secondMajorProfiles    Profile[]                      @relation("SecondMajorDepartment")
   minorProfiles          Profile[]                      @relation("MinorDepartment")
 
   @@index([universityId])
@@ -60,31 +61,47 @@ model Department {
 }
 
 model Track {
-  id                  Int        @id @default(autoincrement())
-  departmentId        Int        @map("department_id")
-  name                String
-  requiredCourseCount Int        @map("required_course_count")
-  department          Department @relation(fields: [departmentId], references: [id])
-  profiles            Profile[]
+  id                       Int        @id @default(autoincrement())
+  departmentId             Int        @map("department_id")
+  name                     String
+  requiredCourseCount      Int        @map("required_course_count")
+  department               Department @relation(fields: [departmentId], references: [id])
+  majorTrackProfiles       Profile[]  @relation("MajorTrack")
+  secondMajorTrackProfiles Profile[]  @relation("SecondMajorTrack")
 
   @@index([departmentId])
   @@map("tracks")
 }
 
-model Profile {
-  id                Int       @id @default(autoincrement())
-  sessionId         String    @unique @map("session_id")
-  admissionYear     Int       @map("admission_year")
-  universityId      Int       @map("university_id")
-  majorDepartmentId Int       @map("major_department_id")
-  minorDepartmentId Int?      @map("minor_department_id")
-  trackId           Int?      @map("track_id")
-  syncedAt          DateTime? @map("synced_at")
+enum ProgramType {
+  DOUBLE_MAJOR // 복수전공(제2전공)
+  DEEPENED_MAJOR // 전공심화(단수전공)
+}
 
-  university      University  @relation(fields: [universityId], references: [id])
-  majorDepartment Department  @relation("MajorDepartment", fields: [majorDepartmentId], references: [id])
-  minorDepartment Department? @relation("MinorDepartment", fields: [minorDepartmentId], references: [id])
-  track           Track?      @relation(fields: [trackId], references: [id])
+model Profile {
+  id            Int    @id @default(autoincrement())
+  sessionId     String @unique @map("session_id")
+  admissionYear Int    @map("admission_year")
+  universityId  Int    @map("university_id")
+
+  majorDepartmentId Int         @map("major_department_id")
+  majorTrackId      Int?        @map("major_track_id")
+  programType       ProgramType @map("program_type")
+
+  secondMajorDepartmentId Int? @map("second_major_department_id")
+  secondMajorTrackId      Int? @map("second_major_track_id")
+
+  minorDepartmentId Int?    @map("minor_department_id")
+  hasMicroDegree    Boolean @default(false) @map("has_micro_degree")
+
+  syncedAt DateTime? @map("synced_at")
+
+  university            University  @relation(fields: [universityId], references: [id])
+  majorDepartment       Department  @relation("MajorDepartment", fields: [majorDepartmentId], references: [id])
+  majorTrack            Track?      @relation("MajorTrack", fields: [majorTrackId], references: [id])
+  secondMajorDepartment Department? @relation("SecondMajorDepartment", fields: [secondMajorDepartmentId], references: [id])
+  secondMajorTrack      Track?      @relation("SecondMajorTrack", fields: [secondMajorTrackId], references: [id])
+  minorDepartment       Department? @relation("MinorDepartment", fields: [minorDepartmentId], references: [id])
 
   semesters       Semester[]
   retakeGroups    RetakeGroup[]
@@ -92,8 +109,8 @@ model Profile {
 
   @@index([universityId])
   @@index([majorDepartmentId])
+  @@index([secondMajorDepartmentId])
   @@index([minorDepartmentId])
-  @@index([trackId])
   @@map("profiles")
 }
 
