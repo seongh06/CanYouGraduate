@@ -8,6 +8,7 @@ export interface ParsedCourseOffering {
   section: string;
   credit: number;
   professor: string;
+  foreignLanguageType: string | null;
 }
 
 // 트리니티(uportal) "개설과목리스트" 엑셀의 고정 컬럼 순서(실제 파일로 확인, 1행 제목/2행 헤더):
@@ -28,13 +29,14 @@ export function parseCourseOfferingWorkbook(workbook: Workbook): ParsedCourseOff
     const section = cell(5);
     const hoursOverCredit = cell(7); // "4/3"(시간/학점) 형식 — 뒤쪽 숫자가 학점
     const professor = cell(9);
+    const foreignLanguageType = cell(11) || null; // 예: "A형(영)" — 빈 칸이면 일반(한국어) 강의
 
     if (!code || !name) return;
 
     const creditMatch = /\/(\d+)$/.exec(hoursOverCredit);
     const credit = creditMatch ? Number(creditMatch[1]) : Number(hoursOverCredit) || 0;
 
-    rows.push({ category, departmentName, code, name, section, credit, professor });
+    rows.push({ category, departmentName, code, name, section, credit, professor, foreignLanguageType });
   });
 
   return rows;

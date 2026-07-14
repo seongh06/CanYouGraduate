@@ -52,6 +52,7 @@ async function main() {
           credit: row.credit,
           professor: row.professor,
           departmentName: row.departmentName,
+          foreignLanguageType: row.foreignLanguageType,
         },
         create: {
           universityId,
@@ -64,6 +65,7 @@ async function main() {
           credit: row.credit,
           professor: row.professor,
           departmentName: row.departmentName,
+          foreignLanguageType: row.foreignLanguageType,
         },
       }),
     );

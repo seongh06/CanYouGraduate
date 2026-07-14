@@ -14,6 +14,7 @@ export interface CourseItem {
   category: string | null;
   credit: number;
   general: boolean;
+  foreignLanguageType: string | null;
   isDuplicate: boolean;
   needsSubstitution: boolean;
   substitutionName: string | null;

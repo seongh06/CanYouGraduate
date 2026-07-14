@@ -150,6 +150,8 @@ model Course {
   // 학생 본인 전공 소속으로 개설된 경우 전공학점으로 재분류하는 데 쓰인다(Department FK 아님,
   // CourseOffering과 동일하게 원문 텍스트로만 보관 — 요청 시점 매칭이라 학과가 나중에 바뀌어도 안전).
   offeringDepartmentName      String?      @map("offering_department_name")
+  // CourseOffering의 "외국어 강의여부" 원문(예: "A형(영)") — 외국어로 진행되는 강의임을 STEP1에 표시.
+  foreignLanguageType         String?      @map("foreign_language_type")
 
   semester     Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   // 대체인정 연결된 요람 과목이 삭제되어도 수강기록 자체는 남기고 연결만 해제한다.
@@ -183,17 +185,18 @@ model CatalogCourse {
 // 여러 학과가 서로 다른 분반으로 공유 개설하는 경우도 있어 학과 FK 없이 원문 학과명만 저장한다.
 // 에브리타임 크롤러가 과목코드/학점을 못 얻는 문제를 이 데이터와 (과목명 + 담당교수) 매칭으로 보완한다.
 model CourseOffering {
-  id             Int    @id @default(autoincrement())
-  universityId   Int    @map("university_id")
-  year           Int
-  term           String // '1학기' | '2학기' | '하계계절학기' | '동계계절학기'
-  code           String
-  name           String
-  section        String
-  professor      String
-  credit         Int
-  category       String
-  departmentName String @map("department_name") // 엑셀 원문("개설전공(과)") 그대로, Department FK 아님
+  id                  Int     @id @default(autoincrement())
+  universityId        Int     @map("university_id")
+  year                Int
+  term                String // '1학기' | '2학기' | '하계계절학기' | '동계계절학기'
+  code                String
+  name                String
+  section             String
+  professor           String
+  credit              Int
+  category            String
+  departmentName      String  @map("department_name") // 엑셀 원문("개설전공(과)") 그대로, Department FK 아님
+  foreignLanguageType String? @map("foreign_language_type") // 엑셀 "외국어 강의여부" 원문(예: "A형(영)"), 빈칸이면 null
 
   university University @relation(fields: [universityId], references: [id])
 
@@ -220,6 +223,7 @@ model CatalogGraduationRequirement {
 
   department Department @relation(fields: [departmentId], references: [id])
 
+  @@unique([departmentId, admissionYearFrom])
   @@index([departmentId])
   @@map("catalog_graduation_requirements")
 }

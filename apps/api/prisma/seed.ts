@@ -299,6 +299,7 @@ async function main() {
   }
 
   const math = await prisma.department.findUniqueOrThrow({ where: { id: 319 } });
+  const design = await prisma.department.findUniqueOrThrow({ where: { id: 322 } });
 
   await prisma.track.upsert({
     where: { id: 11 },
@@ -378,6 +379,34 @@ async function main() {
         { type: 'CERTIFICATE', condition: '펀드투자권유대행인, 증권투자권유대행인 중 1개 취득', waives: 1, note: '금융수학영역 대체' },
         { type: 'COMPETITION', condition: '학술제 수상', waives: 1, note: '선택영역 1개' },
       ],
+    },
+  });
+
+  // 공간디자인·소비자학과: 실제 학과 사이트(design/course/academic.do)에서 확인한 값 그대로 입력.
+  // FIX#28에서 발견된 "제2전공 이수구분 오분류" 재현 검증에 쓰인 데이터.
+  await prisma.catalogGraduationRequirement.upsert({
+    where: { departmentId_admissionYearFrom: { departmentId: design.id, admissionYearFrom: 2018 } },
+    update: {},
+    create: {
+      departmentId: design.id,
+      admissionYearFrom: 2018,
+      creditBreakdown: { majorDeepMin: 69, doubleMajorMin: 36 },
+      comprehensiveExam: {
+        examSubjects: ['주거학', '실내디자인론', '소비자트렌드', '소비자학개론', '공간브랜딩'],
+        majorRequiredCount: 3,
+        doubleMajorRequiredCount: 3,
+        passingRule: '선택한 3과목 모두 60점 이상',
+      },
+      substitutionRules: [
+        {
+          type: 'LANGUAGE',
+          condition: 'TOEIC 750점 이상 등 공인 어학성적(동일 언어계열은 2과목까지 면제 가능)',
+          waives: 1,
+        },
+        { type: 'CERTIFICATE', condition: '전공 관련 자격증(기능사급/2급 이상)', waives: 1 },
+        { type: 'COMPETITION', condition: '전국규모 공모전 장려상 이상, 교내/학과 우수상 이상 등', waives: 1 },
+      ],
+      thesisOptional: true,
     },
   });
 
