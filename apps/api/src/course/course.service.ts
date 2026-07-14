@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Profile } from '@prisma/client';
-import { similarity } from '../catalog/core/levenshtein.util';
+import { similarity } from '../common/levenshtein.util';
 import { findOrCreateSemester } from '../common/semester.util';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -124,10 +124,13 @@ export class CourseService {
 
     const duplicateGroups = await Promise.all(
       duplicateEntries.map(async ([name, courseIds]) => {
+        // groupKey는 과목명이 아니라 그룹 내 가장 이른 과목의 courseId로 고정한다 — 과목명이 나중에
+        // 바뀌거나(수정 API) 병합 그룹이 재구성돼도 동일한 RetakeGroup 로우를 계속 참조하기 위함.
+        const groupKey = String(courseIds[0]);
         const retakeGroup = await this.prisma.retakeGroup.upsert({
-          where: { profileId_groupKey: { profileId: profile.id, groupKey: name } },
-          update: {},
-          create: { profileId: profile.id, groupKey: name, name, retakeAccepted: true },
+          where: { profileId_groupKey: { profileId: profile.id, groupKey } },
+          update: { name },
+          create: { profileId: profile.id, groupKey, name, retakeAccepted: true },
         });
         return {
           groupKey: retakeGroup.groupKey,
@@ -162,6 +165,9 @@ export class CourseService {
     const course = await this.findOwnedCourse(profile.id, courseId);
     const catalogCourse = await this.prisma.catalogCourse.findUnique({ where: { id: catalogCourseId } });
     if (!catalogCourse) throw new NotFoundException('존재하지 않는 과목 정보입니다.');
+    if (catalogCourse.departmentId !== profile.majorDepartmentId) {
+      throw new NotFoundException('존재하지 않는 과목 정보입니다.');
+    }
 
     await this.prisma.course.update({
       where: { id: course.id },

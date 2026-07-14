@@ -39,11 +39,14 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
   });
   const duplicateGroups = duplicatesQuery.data?.duplicateGroups ?? [];
 
-  const semesterLabelsByCourseId = new Map<number, string>();
-  semesters.forEach((sem, i) => {
-    const courses = courseQueries[i]?.data?.courses ?? [];
-    courses.forEach((c) => semesterLabelsByCourseId.set(c.id, sem.label));
-  });
+  const semesterLabelsByCourseId = useMemo(() => {
+    const map = new Map<number, string>();
+    semesters.forEach((sem, i) => {
+      const courses = courseQueries[i]?.data?.courses ?? [];
+      courses.forEach((c) => map.set(c.id, sem.label));
+    });
+    return map;
+  }, [semesters, courseQueries]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['everytime', 'courses', sessionId] });
