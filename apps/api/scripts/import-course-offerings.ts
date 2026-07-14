@@ -41,8 +41,8 @@ async function main() {
     await workbook.xlsx.readFile(path.join(dir, file));
     const rows = parseCourseOfferingWorkbook(workbook);
 
-    for (const row of rows) {
-      await prisma.courseOffering.upsert({
+    const upserts = rows.map((row) =>
+      prisma.courseOffering.upsert({
         where: {
           universityId_year_term_code_section: { universityId, year, term, code: row.code, section: row.section },
         },
@@ -65,8 +65,9 @@ async function main() {
           professor: row.professor,
           departmentName: row.departmentName,
         },
-      });
-    }
+      }),
+    );
+    await prisma.$transaction(upserts);
 
     // eslint-disable-next-line no-console
     console.log(`${file}: ${rows.length}건 임포트 완료 (${year}년 ${term})`);

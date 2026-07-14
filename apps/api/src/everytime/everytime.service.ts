@@ -81,22 +81,14 @@ export class EverytimeService {
       return courses.map((c) => ({ name: c.name, code: null, category: null, credit: 0 }));
     }
 
-    const inputs: CourseInput[] = [];
-    for (const c of courses) {
-      const matched = await this.offeringMatcher.match({
-        universityId,
-        year: parsedLabel.year,
-        term: parsedLabel.term,
-        name: c.name,
-        professor: c.professor,
-      });
-      inputs.push(
-        matched
-          ? { name: c.name, code: matched.code, category: matched.category, credit: matched.credit }
-          : { name: c.name, code: null, category: null, credit: 0 },
-      );
-    }
-    return inputs;
+    const matchedResults = await this.offeringMatcher.matchMany(universityId, parsedLabel.year, parsedLabel.term, courses);
+
+    return courses.map((c, i) => {
+      const matched = matchedResults[i];
+      return matched
+        ? { name: c.name, code: matched.code, category: matched.category, credit: matched.credit }
+        : { name: c.name, code: null, category: null, credit: 0 };
+    });
   }
 
   async syncFromText(profile: Profile, semesterLabel: string, rawText: string) {
