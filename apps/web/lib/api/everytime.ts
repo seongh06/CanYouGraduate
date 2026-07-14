@@ -15,6 +15,8 @@ export interface CourseItem {
   credit: number;
   general: boolean;
   isDuplicate: boolean;
+  needsSubstitution: boolean;
+  substitutionName: string | null;
 }
 
 export function syncEverytime(sessionId: string, url: string) {

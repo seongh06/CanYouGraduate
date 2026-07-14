@@ -26,3 +26,15 @@ export interface CreateCourseInput {
 export function createCourse(sessionId: string, body: CreateCourseInput) {
   return apiFetch<{ courseId: number; semesterId: number }>('/api/courses', { method: 'POST', sessionId, body });
 }
+
+export function setSubstitution(sessionId: string, courseId: number, catalogCourseId: number) {
+  return apiFetch<{ courseId: number; matchedName: string }>(`/api/courses/${courseId}/substitution`, {
+    method: 'POST',
+    sessionId,
+    body: { catalogCourseId },
+  });
+}
+
+export function removeSubstitution(sessionId: string, courseId: number) {
+  return apiFetch<null>(`/api/courses/${courseId}/substitution`, { method: 'DELETE', sessionId });
+}
