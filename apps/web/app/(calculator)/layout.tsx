@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { StartOverFab } from '../../components/layout/StartOverFab';
 import { TopBar } from '../../components/layout/TopBar';
 import { listSemesters } from '../../lib/api/everytime';
 import { useSession } from '../../lib/session';
@@ -35,6 +36,7 @@ export default function CalculatorLayout({ children }: { children: React.ReactNo
     <main className="min-h-screen bg-brand-bg pb-28">
       <TopBar step={step} onGoToStep={(n) => router.push(STEP_PATHS[n])} canGoToStep={canGoToStep} />
       <div className="mx-auto max-w-[1120px] px-4 pt-6 sm:px-8">{children}</div>
+      <StartOverFab />
     </main>
   );
 }
