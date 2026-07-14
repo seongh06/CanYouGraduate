@@ -5,9 +5,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { CourseList } from '../components/calculator/CourseList';
 import { FilteredSchedulePanel } from '../components/calculator/FilteredSchedulePanel';
 import { SemesterList } from '../components/calculator/SemesterList';
+import { Step2Panel } from '../components/calculator/Step2Panel';
 import { SyncCard } from '../components/calculator/SyncCard';
 import { TopBar } from '../components/layout/TopBar';
 import { OnboardingForm } from '../components/onboarding/OnboardingForm';
+import { Card } from '../components/ui/Card';
 import { deleteCourse, updateCourse } from '../lib/api/courses';
 import { listCourses, listSemesters } from '../lib/api/everytime';
 import { useSession } from '../lib/session';
@@ -75,20 +77,32 @@ export default function HomePage() {
     <main className="min-h-screen bg-brand-bg pb-28">
       <TopBar step={step} onGoToStep={goToStep} canGoToStep={canGoToStep} />
       <div className="mx-auto max-w-[1120px] px-4 pt-6 sm:px-8">
-        <SyncCard synced={semesters.length > 0} syncing={syncing} onSyncStart={() => setSyncing(true)} />
+        {step === 1 && (
+          <>
+            <SyncCard synced={semesters.length > 0} syncing={syncing} onSyncStart={() => setSyncing(true)} />
 
-        {semesters.length > 0 && (
-          <div className="flex flex-col gap-3.5 sm:grid sm:grid-cols-[220px_1fr] sm:items-start sm:gap-5">
-            <SemesterList semesters={semesters} selectedSemesterId={selectedSemesterId} onSelect={selectSemester} />
-            <div className="min-w-0">
-              <CourseList semesterLabel={currentSemester?.label ?? ''} courses={courses} />
-              <FilteredSchedulePanel
-                courses={courses}
-                onAddBack={(id) => addBackMutation.mutate(id)}
-                onDelete={(id) => deleteMutation.mutate(id)}
-              />
-            </div>
-          </div>
+            {semesters.length > 0 && (
+              <div className="flex flex-col gap-3.5 sm:grid sm:grid-cols-[220px_1fr] sm:items-start sm:gap-5">
+                <SemesterList semesters={semesters} selectedSemesterId={selectedSemesterId} onSelect={selectSemester} />
+                <div className="min-w-0">
+                  <CourseList semesterLabel={currentSemester?.label ?? ''} courses={courses} />
+                  <FilteredSchedulePanel
+                    courses={courses}
+                    onAddBack={(id) => addBackMutation.mutate(id)}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 2 && <Step2Panel onCalculate={() => goToStep(3)} />}
+
+        {step === 3 && (
+          <Card>
+            <div className="text-sm font-bold">STEP3 대시보드는 다음 이슈에서 구현됩니다.</div>
+          </Card>
         )}
       </div>
     </main>

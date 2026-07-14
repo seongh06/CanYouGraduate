@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Profile } from '@prisma/client';
+import { similarity } from '../common/levenshtein.util';
 import { findOrCreateSemester } from '../common/semester.util';
 import { PrismaService } from '../prisma/prisma.service';
+
+const DUPLICATE_MERGE_THRESHOLD = 0.85;
 
 export interface CreateCourseBody {
   semesterLabel?: string;
@@ -20,6 +23,10 @@ export interface UpdateCourseBody {
 
 function isNonNegativeInt(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInt(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
 
 @Injectable()
@@ -89,6 +96,94 @@ export class CourseService {
   async deleteCourse(profile: Profile, courseId: number) {
     const course = await this.findOwnedCourse(profile.id, courseId);
     await this.prisma.course.delete({ where: { id: course.id } });
+  }
+
+  async listDuplicates(profile: Profile) {
+    const courses = await this.prisma.course.findMany({
+      where: { semester: { profileId: profile.id }, general: false },
+      orderBy: [{ semester: { sortOrder: 'asc' } }, { id: 'asc' }],
+    });
+
+    // 1차: 과목명 exact match로 그룹핑
+    const exactGroups = new Map<string, number[]>();
+    for (const c of courses) {
+      const ids = exactGroups.get(c.name) ?? [];
+      ids.push(c.id);
+      exactGroups.set(c.name, ids);
+    }
+
+    // 2차: 오탈자 대응을 위해 Levenshtein 유사도가 높은 그룹끼리 병합(첫 등장 이름을 대표명으로 채택)
+    const mergedGroups = new Map<string, number[]>();
+    for (const [name, ids] of exactGroups) {
+      const canonical = [...mergedGroups.keys()].find((existing) => similarity(name, existing) >= DUPLICATE_MERGE_THRESHOLD);
+      const key = canonical ?? name;
+      mergedGroups.set(key, [...(mergedGroups.get(key) ?? []), ...ids]);
+    }
+
+    const duplicateEntries = [...mergedGroups.entries()].filter(([, ids]) => ids.length > 1);
+
+    const duplicateGroups = await Promise.all(
+      duplicateEntries.map(async ([name, courseIds]) => {
+        // groupKey는 과목명이 아니라 그룹 내 가장 이른 과목의 courseId로 고정한다 — 과목명이 나중에
+        // 바뀌거나(수정 API) 병합 그룹이 재구성돼도 동일한 RetakeGroup 로우를 계속 참조하기 위함.
+        const groupKey = String(courseIds[0]);
+        const retakeGroup = await this.prisma.retakeGroup.upsert({
+          where: { profileId_groupKey: { profileId: profile.id, groupKey } },
+          update: { name },
+          create: { profileId: profile.id, groupKey, name, retakeAccepted: true },
+        });
+        return {
+          groupKey: retakeGroup.groupKey,
+          name: retakeGroup.name,
+          courseIds,
+          retakeAccepted: retakeGroup.retakeAccepted,
+        };
+      }),
+    );
+
+    return { duplicateGroups };
+  }
+
+  async toggleRetake(profile: Profile, groupKey: string, retakeAccepted: unknown) {
+    if (typeof retakeAccepted !== 'boolean') {
+      throw new BadRequestException('재수강 인정 여부(retakeAccepted) 값이 올바르지 않습니다.');
+    }
+
+    const existing = await this.prisma.retakeGroup.findUnique({
+      where: { profileId_groupKey: { profileId: profile.id, groupKey } },
+    });
+    if (!existing) throw new NotFoundException('존재하지 않는 중복 그룹입니다.');
+
+    await this.prisma.retakeGroup.update({ where: { id: existing.id }, data: { retakeAccepted } });
+  }
+
+  async setSubstitution(profile: Profile, courseId: number, catalogCourseId: unknown) {
+    if (!isPositiveInt(catalogCourseId)) {
+      throw new BadRequestException('연결할 요람 과목(catalogCourseId)은 필수입니다.');
+    }
+
+    const course = await this.findOwnedCourse(profile.id, courseId);
+    const catalogCourse = await this.prisma.catalogCourse.findUnique({ where: { id: catalogCourseId } });
+    if (!catalogCourse) throw new NotFoundException('존재하지 않는 과목 정보입니다.');
+    if (catalogCourse.departmentId !== profile.majorDepartmentId) {
+      throw new NotFoundException('존재하지 않는 과목 정보입니다.');
+    }
+
+    await this.prisma.course.update({
+      where: { id: course.id },
+      data: { substitutionCatalogCourseId: catalogCourse.id },
+    });
+
+    return { courseId: course.id, matchedName: catalogCourse.name };
+  }
+
+  async removeSubstitution(profile: Profile, courseId: number) {
+    const course = await this.findOwnedCourse(profile.id, courseId);
+    if (!course.substitutionCatalogCourseId) {
+      throw new NotFoundException('존재하지 않는 과목 정보입니다.');
+    }
+
+    await this.prisma.course.update({ where: { id: course.id }, data: { substitutionCatalogCourseId: null } });
   }
 
   private async findOwnedCourse(profileId: number, courseId: number) {
