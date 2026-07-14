@@ -39,7 +39,7 @@ export function SyncCard({ synced, syncing, onSyncStart }: SyncCardProps) {
     <Card className="mb-5">
       <div className="mb-1 text-[15px] font-bold">에브리타임 시간표 연동</div>
       <div className="mb-4 text-[13px] text-brand-text-muted">
-        에브리타임 앱에서 시간표 &rarr; 공유하기로 복사한 URL을 붙여넣으면, 좌측 메뉴의 학기 목록을 자동으로 인식해 모든 학기의 수강 내역을 가져와요.
+        에브리타임 앱에서 시간표 &rarr; 공유하기로 복사한 URL을 붙여넣으면, 좌측 메뉴의 학기 목록을 자동으로 인식해 모든 학기의 수강 내역을 가져와요. 학기 수에 따라 20~30초 정도 걸릴 수 있어요.
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
         <input
@@ -55,7 +55,7 @@ export function SyncCard({ synced, syncing, onSyncStart }: SyncCardProps) {
             disabled={syncMutation.isPending || syncing}
             className="h-12 whitespace-nowrap rounded-xl bg-brand-blue px-[22px] text-sm font-bold text-white disabled:opacity-60"
           >
-            {syncing ? '동기화 진행 중...' : '동기화하기'}
+            {syncing ? '동기화 진행 중... (최대 30초)' : '동기화하기'}
           </button>
         )}
         {synced && (
