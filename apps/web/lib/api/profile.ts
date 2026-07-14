@@ -1,11 +1,17 @@
 import { apiFetch } from './client';
 
+export type ProgramType = 'DOUBLE_MAJOR' | 'DEEPENED_MAJOR';
+
 export interface CreateProfileInput {
   admissionYear: number;
   universityId: number;
   majorDepartmentId: number;
+  majorTrackId?: number | null;
+  programType: ProgramType;
+  secondMajorDepartmentId?: number | null;
+  secondMajorTrackId?: number | null;
   minorDepartmentId?: number | null;
-  trackId?: number | null;
+  hasMicroDegree?: boolean;
 }
 
 export interface CreateProfileResult {
@@ -23,8 +29,12 @@ export interface ProfileDetail {
   admissionYear: number;
   university: { id: number; name: string };
   majorDepartment: { id: number; name: string };
+  majorTrack: { id: number; name: string } | null;
+  programType: ProgramType;
+  secondMajorDepartment: { id: number; name: string } | null;
+  secondMajorTrack: { id: number; name: string } | null;
   minorDepartment: { id: number; name: string } | null;
-  track: { id: number; name: string } | null;
+  hasMicroDegree: boolean;
   syncedAt: string | null;
 }
 

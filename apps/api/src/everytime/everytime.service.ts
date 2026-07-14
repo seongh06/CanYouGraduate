@@ -116,6 +116,7 @@ export class EverytimeService {
     const courses = await this.prisma.course.findMany({
       where: { semesterId, ...(includeGeneral ? {} : { general: false }) },
       orderBy: { id: 'asc' },
+      include: { substitution: true },
     });
 
     return {
@@ -127,6 +128,8 @@ export class EverytimeService {
         credit: c.credit,
         general: c.general,
         isDuplicate: (nameCounts.get(c.name) ?? 0) > 1,
+        needsSubstitution: !c.general && !c.code && !c.substitution,
+        substitutionName: c.substitution?.name ?? null,
       })),
     };
   }

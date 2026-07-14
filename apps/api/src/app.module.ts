@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
+import { CatalogModule } from './catalog/catalog.module';
 import { CourseModule } from './course/course.module';
 import { EverytimeModule } from './everytime/everytime.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -8,7 +9,7 @@ import { SessionModule } from './session/session.module';
 import { UniversityModule } from './university/university.module';
 
 @Module({
-  imports: [PrismaModule, SessionModule, UniversityModule, ProfileModule, EverytimeModule, CourseModule],
+  imports: [PrismaModule, SessionModule, UniversityModule, ProfileModule, EverytimeModule, CourseModule, CatalogModule],
   controllers: [AppController],
   providers: [],
 })

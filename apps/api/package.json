@@ -9,7 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "crawl:catalog": "ts-node scripts/crawl-catalog.ts"
   },
   "dependencies": {
     "@canyougraduate/shared-types": "*",

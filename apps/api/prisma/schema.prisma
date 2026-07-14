@@ -14,76 +14,116 @@ model University {
   name          String
   supported     Boolean                @default(false)
   departments   Department[]
+  colleges      College[]
   profiles      Profile[]
   catalogChecks CatalogCatholicCheck[]
 
   @@map("universities")
 }
 
-model Department {
-  id             Int             @id @default(autoincrement())
-  universityId   Int             @map("university_id")
-  name           String
-  catalogReady   Boolean         @default(false) @map("catalog_ready")
-  university     University      @relation(fields: [universityId], references: [id])
-  tracks         Track[]
-  catalogCourses CatalogCourse[]
-  majorProfiles  Profile[]       @relation("MajorDepartment")
-  minorProfiles  Profile[]       @relation("MinorDepartment")
+// 계열(College)은 학과 상위 그룹핑 단위 — 대학 공식 계열번호를 그대로 id로 사용(autoincrement 아님).
+// 크롤러가 학과 사이트 URL을 발견/조직하는 데 쓰인다([[대학_학사_데이터_크롤링_파이프라인_및_폐지_과목_처리_설계서_v2]] 1.2).
+model College {
+  id           Int          @id
+  universityId Int          @map("university_id")
+  name         String
+  campus       String       @default("성심") // '성심' | '성의' | '성신'
+  university   University   @relation(fields: [universityId], references: [id])
+  departments  Department[]
 
   @@index([universityId])
+  @@map("colleges")
+}
+
+model Department {
+  id                     Int                            @id @default(autoincrement())
+  universityId           Int                            @map("university_id")
+  collegeId              Int?                           @map("college_id")
+  name                   String
+  catalogReady           Boolean                        @default(false) @map("catalog_ready")
+  // 아래 3개 필드는 catalog/catholic-university 크롤러가 학과 사이트를 찾아가는 데 쓰는 실제 확인된 값
+  // ([[대학_학사_데이터_크롤링_파이프라인_및_폐지_과목_처리_설계서_v2]] 1.3, 가톨릭대_학과_계열_매핑.xlsx 기준).
+  domainSlug             String?                        @map("domain_slug")
+  baseUrl                String?                        @map("base_url")
+  urlPattern             String                         @default("standard") @map("url_pattern") // 'standard' | 'subdirectory' | 'other-campus'
+  university             University                     @relation(fields: [universityId], references: [id])
+  college                College?                       @relation(fields: [collegeId], references: [id])
+  tracks                 Track[]
+  catalogCourses         CatalogCourse[]
+  graduationRequirements CatalogGraduationRequirement[]
+  majorProfiles          Profile[]                      @relation("MajorDepartment")
+  secondMajorProfiles    Profile[]                      @relation("SecondMajorDepartment")
+  minorProfiles          Profile[]                      @relation("MinorDepartment")
+
+  @@index([universityId])
+  @@index([collegeId])
   @@map("departments")
 }
 
 model Track {
-  id                  Int                        @id @default(autoincrement())
-  departmentId        Int                        @map("department_id")
-  name                String
-  requiredCourseCount Int                        @map("required_course_count")
-  department          Department                 @relation(fields: [departmentId], references: [id])
-  profiles            Profile[]
-  requirements        CatalogTrackRequirement[]
+  id                       Int        @id @default(autoincrement())
+  departmentId             Int        @map("department_id")
+  name                     String
+  requiredCourseCount      Int        @map("required_course_count")
+  department               Department @relation(fields: [departmentId], references: [id])
+  majorTrackProfiles       Profile[]  @relation("MajorTrack")
+  secondMajorTrackProfiles Profile[]  @relation("SecondMajorTrack")
 
   @@index([departmentId])
   @@map("tracks")
 }
 
+enum ProgramType {
+  DOUBLE_MAJOR // 복수전공(제2전공)
+  DEEPENED_MAJOR // 전공심화(단수전공)
+}
+
 model Profile {
-  id                Int         @id @default(autoincrement())
-  sessionId         String      @unique @map("session_id")
-  admissionYear     Int         @map("admission_year")
-  universityId      Int         @map("university_id")
+  id            Int    @id @default(autoincrement())
+  sessionId     String @unique @map("session_id")
+  admissionYear Int    @map("admission_year")
+  universityId  Int    @map("university_id")
+
   majorDepartmentId Int         @map("major_department_id")
-  minorDepartmentId Int?        @map("minor_department_id")
-  trackId           Int?        @map("track_id")
-  syncedAt          DateTime?   @map("synced_at")
+  majorTrackId      Int?        @map("major_track_id")
+  programType       ProgramType @map("program_type")
 
-  university        University  @relation(fields: [universityId], references: [id])
-  majorDepartment   Department  @relation("MajorDepartment", fields: [majorDepartmentId], references: [id])
-  minorDepartment   Department? @relation("MinorDepartment", fields: [minorDepartmentId], references: [id])
-  track             Track?      @relation(fields: [trackId], references: [id])
+  secondMajorDepartmentId Int? @map("second_major_department_id")
+  secondMajorTrackId      Int? @map("second_major_track_id")
 
-  semesters         Semester[]
-  retakeGroups      RetakeGroup[]
-  graduationExtra   GraduationExtra?
+  minorDepartmentId Int?    @map("minor_department_id")
+  hasMicroDegree    Boolean @default(false) @map("has_micro_degree")
+
+  syncedAt DateTime? @map("synced_at")
+
+  university            University  @relation(fields: [universityId], references: [id])
+  majorDepartment       Department  @relation("MajorDepartment", fields: [majorDepartmentId], references: [id])
+  majorTrack            Track?      @relation("MajorTrack", fields: [majorTrackId], references: [id])
+  secondMajorDepartment Department? @relation("SecondMajorDepartment", fields: [secondMajorDepartmentId], references: [id])
+  secondMajorTrack      Track?      @relation("SecondMajorTrack", fields: [secondMajorTrackId], references: [id])
+  minorDepartment       Department? @relation("MinorDepartment", fields: [minorDepartmentId], references: [id])
+
+  semesters       Semester[]
+  retakeGroups    RetakeGroup[]
+  graduationExtra GraduationExtra?
 
   @@index([universityId])
   @@index([majorDepartmentId])
+  @@index([secondMajorDepartmentId])
   @@index([minorDepartmentId])
-  @@index([trackId])
   @@map("profiles")
 }
 
 model Semester {
-  id        Int      @id @default(autoincrement())
-  profileId Int      @map("profile_id")
+  id        Int     @id @default(autoincrement())
+  profileId Int     @map("profile_id")
   label     String
-  sortOrder Int      @map("sort_order")
-  active    Boolean  @default(false)
+  sortOrder Int     @map("sort_order")
+  active    Boolean @default(false)
 
   // Profile은 세션 단위 임시 데이터라, 세션 만료/탈퇴 시 하위 학기·과목도 함께 정리되어야 한다.
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  courses   Course[]
+  profile Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  courses Course[]
 
   @@index([profileId])
   @@map("semesters")
@@ -106,9 +146,9 @@ model Course {
   substitutionCatalogCourseId Int?         @map("substitution_catalog_course_id")
   source                      CourseSource @default(MANUAL)
 
-  semester                    Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  semester     Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   // 대체인정 연결된 요람 과목이 삭제되어도 수강기록 자체는 남기고 연결만 해제한다.
-  substitution                CatalogCourse? @relation(fields: [substitutionCatalogCourseId], references: [id], onDelete: SetNull)
+  substitution CatalogCourse? @relation(fields: [substitutionCatalogCourseId], references: [id], onDelete: SetNull)
 
   @@index([semesterId])
   @@index([substitutionCatalogCourseId])
@@ -116,34 +156,43 @@ model Course {
 }
 
 model CatalogCourse {
-  id                 Int      @id @default(autoincrement())
-  departmentId       Int      @map("department_id")
-  name               String
-  code               String
-  category           String
-  credit             Int
-  admissionYearFrom  Int      @map("admission_year_from")
-  admissionYearTo    Int?     @map("admission_year_to")
+  id                Int    @id @default(autoincrement())
+  departmentId      Int    @map("department_id")
+  name              String
+  code              String
+  category          String
+  credit            Int
+  admissionYearFrom Int    @map("admission_year_from")
+  admissionYearTo   Int?   @map("admission_year_to")
 
   department         Department @relation(fields: [departmentId], references: [id])
-  trackRequirements  CatalogTrackRequirement[]
   substitutedCourses Course[]
 
+  @@unique([departmentId, code])
   @@index([departmentId])
   @@map("catalog_courses")
 }
 
-model CatalogTrackRequirement {
-  id              Int  @id @default(autoincrement())
-  trackId         Int  @map("track_id")
-  catalogCourseId Int  @map("catalog_course_id")
+// 실제 졸업요건은 "트랙별 필수과목 리스트"가 아니라 학과별 "졸업종합시험 + 대체규정" 구조라
+// (심화전공/복수전공 과목 수, TOEIC/자격증/논문/공모전 대체 등 학과마다 상이) JSON 기반 반구조화 모델로 설계.
+// comprehensiveExam/substitutionRules/creditBreakdown 형식은 구현 방식 문서·설계서 v2 참고.
+model CatalogGraduationRequirement {
+  id                Int  @id @default(autoincrement())
+  departmentId      Int  @map("department_id")
+  admissionYearFrom Int  @map("admission_year_from")
+  admissionYearTo   Int? @map("admission_year_to")
 
-  track           Track         @relation(fields: [trackId], references: [id])
-  catalogCourse   CatalogCourse @relation(fields: [catalogCourseId], references: [id])
+  totalCreditMin        Int?    @map("total_credit_min")
+  creditBreakdown       Json?   @map("credit_breakdown")
+  comprehensiveExam     Json?   @map("comprehensive_exam")
+  substitutionRules     Json    @default("[]") @map("substitution_rules")
+  languageScoreStandard Json?   @map("language_score_standard")
+  thesisOptional        Boolean @default(false) @map("thesis_optional")
 
-  @@index([trackId])
-  @@index([catalogCourseId])
-  @@map("catalog_track_requirements")
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@index([departmentId])
+  @@map("catalog_graduation_requirements")
 }
 
 model CatalogCatholicCheck {
@@ -164,7 +213,7 @@ model RetakeGroup {
   name           String
   retakeAccepted Boolean @default(true) @map("retake_accepted")
 
-  profile        Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@unique([profileId, groupKey])
   @@map("retake_groups")
@@ -176,7 +225,7 @@ model GraduationExtra {
   thesisPass     Boolean @default(false) @map("thesis_pass")
   catholicChecks Json    @default("{}") @map("catholic_checks")
 
-  profile        Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@map("graduation_extra")
 }
