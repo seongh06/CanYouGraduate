@@ -6,6 +6,9 @@ const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      },
       colors: {
         'brand-blue': '#3182F6',
         'brand-blue-dark': '#1B64DA',

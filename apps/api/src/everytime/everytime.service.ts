@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Profile } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { findOrCreateSemester } from '../common/semester.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { EverytimeBlockedError, EverytimeCrawlerService, EverytimeParseFailedError } from './everytime-crawler.service';
 import { EverytimeTextParserService } from './everytime-text-parser.service';
@@ -137,20 +138,13 @@ export class EverytimeService {
     source: CourseSourceValue,
     markActiveIfFirst: boolean,
   ) {
-    let semester = await this.prisma.semester.findFirst({ where: { profileId, label } });
-
-    if (!semester) {
-      const count = await this.prisma.semester.count({ where: { profileId } });
-      semester = await this.prisma.semester.create({
-        data: { profileId, label, sortOrder: count, active: markActiveIfFirst && count === 0 },
-      });
-    }
+    const semester = await findOrCreateSemester(this.prisma, profileId, label, markActiveIfFirst);
 
     const existingCourseCount = await this.prisma.course.count({ where: { semesterId: semester.id } });
     if (existingCourseCount === 0 && courses.length > 0) {
       await this.prisma.course.createMany({
         data: courses.map((c) => ({
-          semesterId: (semester as { id: number }).id,
+          semesterId: semester.id,
           name: c.name,
           code: c.code,
           category: c.category,
