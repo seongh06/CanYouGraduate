@@ -25,7 +25,14 @@ export class EverytimeCrawlerService {
   private readonly logger = new Logger(EverytimeCrawlerService.name);
 
   async crawlAllSemesters(startUrl: string): Promise<CrawledSemesterResult[]> {
-    const browser = await chromium.launch();
+    // 프로덕션(Alpine)에선 Playwright가 기본으로 받는 glibc 빌드 Chromium이 musl libc와
+    // 호환되지 않아 실행 자체가 안 된다(Docker로 재현 확인) — apk로 설치한 시스템 Chromium을
+    // PLAYWRIGHT_CHROMIUM_PATH로 대신 가리킨다. 로컬 개발(Windows/macOS)에선 미설정 상태로
+    // 두면 Playwright가 원래 받은 브라우저를 그대로 쓴다.
+    const browser = await chromium.launch({
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+      args: ['--no-sandbox'],
+    });
     try {
       const context = await browser.newContext({ userAgent: USER_AGENT });
       const page = await context.newPage();

@@ -6,8 +6,12 @@
 # (Prisma generate 시 "Prisma failed to detect the libssl/openssl version" 경고가 바로 그 신호).
 # build/runtime 양쪽 스테이지 모두에 openssl을 설치해야 한다 — build 단계는 올바른 엔진 바이너리를
 # 고르기 위해, runtime 단계는 실제 dlopen 대상 .so 파일이 존재해야 하기 때문.
+# Playwright는 npm ci 시 자체적으로 glibc 빌드 Chromium을 받으려 하는데, Alpine(musl libc)에선
+# 이 바이너리가 실행되지 않는다(실제 Docker 컨테이너로 재현 확인). apk의 시스템 chromium을 대신
+# 쓰므로 Playwright 자체 다운로드는 build 단계부터 건너뛴다.
 FROM node:20-alpine AS build
 RUN apk add --no-cache openssl
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /repo
 COPY . .
 RUN npm ci
@@ -16,7 +20,8 @@ RUN npx prisma generate --schema apps/api/prisma/schema.prisma
 RUN npm run build -w apps/api
 
 FROM node:20-alpine AS runtime
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium-browser
 WORKDIR /repo
 ENV NODE_ENV=production
 COPY --from=build /repo /repo
