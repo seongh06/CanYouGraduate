@@ -19,7 +19,7 @@ jobs:
 
       - name: Run Prisma migrations
         run: |
-          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . run --rm api npx prisma migrate deploy
+          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . run --rm -w /repo/apps/api api npx prisma migrate deploy
 
       - name: Restart services
         run: |
