@@ -42,6 +42,10 @@ services:
     restart: unless-stopped
     env_file:
       - deployment/env/.env
+    environment:
+      # .env의 PORT=4000(api용)이 env_file로 그대로 상속되면 next start도 4000을 쓰려고 해서
+      # host 3000 매핑과 어긋난다 — web 전용으로 override.
+      PORT: 3000
     depends_on:
       - api
     ports:
