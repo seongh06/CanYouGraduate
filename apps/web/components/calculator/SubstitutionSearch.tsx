@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { searchCatalogCourses } from '../../lib/api/catalog';
 import { useSession } from '../../lib/session';
 
@@ -12,10 +12,11 @@ interface SubstitutionSearchProps {
 export function SubstitutionSearch({ onPick }: SubstitutionSearchProps) {
   const { sessionId } = useSession();
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
 
   const resultsQuery = useQuery({
-    queryKey: ['catalog', 'courses', sessionId, query],
-    queryFn: () => searchCatalogCourses(sessionId as string, query),
+    queryKey: ['catalog', 'courses', sessionId, deferredQuery],
+    queryFn: () => searchCatalogCourses(sessionId as string, deferredQuery),
     enabled: !!sessionId,
   });
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Profile } from '@prisma/client';
-import { similarity } from './core/levenshtein.util';
+import { similarity } from '../common/levenshtein.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DEFAULT_LIMIT = 5;
