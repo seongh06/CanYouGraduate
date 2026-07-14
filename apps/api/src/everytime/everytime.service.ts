@@ -3,8 +3,11 @@ import type { Profile } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { findOrCreateSemester } from '../common/semester.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { CourseOfferingMatcherService } from './course-offering-matcher.service';
 import { EverytimeBlockedError, EverytimeCrawlerService, EverytimeParseFailedError } from './everytime-crawler.service';
+import type { CrawledCourse } from './everytime-html-parser';
 import { EverytimeTextParserService } from './everytime-text-parser.service';
+import { parseSemesterLabel } from './semester-label.util';
 
 // 실제 공유(친구 시간표 보기) URL은 /timetable/ 세그먼트 없이 https://everytime.kr/@코드 형식이다
 // (/timetable/@코드는 로그인한 본인 화면 경로이며 비로그인으로는 404 — 실제 URL로 검증 완료).
@@ -27,6 +30,7 @@ export class EverytimeService {
     private readonly prisma: PrismaService,
     private readonly crawler: EverytimeCrawlerService,
     private readonly textParser: EverytimeTextParserService,
+    private readonly offeringMatcher: CourseOfferingMatcherService,
   ) {}
 
   startSync(profile: Profile, url: string): { jobId: string; status: 'PENDING' } {
@@ -38,22 +42,23 @@ export class EverytimeService {
     // 크롤링은 여러 페이지를 순차 방문해 수 초~수십 초가 걸릴 수 있어, 응답은 즉시 202로
     // 반환하고 실제 처리는 백그라운드에서 진행한다. 완료 여부는 GET /api/profile의
     // syncedAt 또는 GET /api/everytime/semesters로 폴링해 확인한다([[구현 방식]] 3.2).
-    this.runCrawlJob(profile.id, url, jobId).catch((error) => {
+    this.runCrawlJob(profile, url, jobId).catch((error) => {
       this.logger.error(`[${jobId}] 동기화 실패 (profileId=${profile.id}): ${(error as Error).message}`);
     });
 
     return { jobId, status: 'PENDING' };
   }
 
-  private async runCrawlJob(profileId: number, url: string, jobId: string): Promise<void> {
+  private async runCrawlJob(profile: Profile, url: string, jobId: string): Promise<void> {
     try {
       const semesters = await this.crawler.crawlAllSemesters(url);
       for (let i = 0; i < semesters.length; i += 1) {
         const semester = semesters[i];
-        await this.upsertSemesterWithCourses(profileId, semester.label, semester.courses, 'CRAWL', i === 0);
+        const courseInputs = await this.matchCourseOfferings(profile.universityId, semester.label, semester.courses);
+        await this.upsertSemesterWithCourses(profile.id, semester.label, courseInputs, 'CRAWL', i === 0);
       }
-      await this.prisma.profile.update({ where: { id: profileId }, data: { syncedAt: new Date() } });
-      this.logger.log(`[${jobId}] 동기화 완료: ${semesters.length}개 학기 (profileId=${profileId})`);
+      await this.prisma.profile.update({ where: { id: profile.id }, data: { syncedAt: new Date() } });
+      this.logger.log(`[${jobId}] 동기화 완료: ${semesters.length}개 학기 (profileId=${profile.id})`);
     } catch (error) {
       if (error instanceof EverytimeBlockedError || error instanceof EverytimeParseFailedError) {
         this.logger.warn(`[${jobId}] ${error.message} — 유저는 텍스트 백업 파서로 안내되어야 함`);
@@ -61,6 +66,29 @@ export class EverytimeService {
       }
       throw error;
     }
+  }
+
+  // 에브리타임 공유 페이지엔 과목코드/학점이 없어([[Reload/🕷️ 에브리타임 실 URL 크롤러 재작성 및 프로덕션 Chromium 트러블슈팅]])
+  // 트리니티 개설과목 리스트(CourseOffering, 수동 임포트)와 과목명+교수명으로 대조해 채워 넣는다.
+  // 학기 라벨을 못 읽거나(텍스트 백업 등) 매칭에 실패하면 기존처럼 null로 남겨 needsSubstitution 흐름으로 넘긴다.
+  private async matchCourseOfferings(
+    universityId: number,
+    semesterLabel: string,
+    courses: CrawledCourse[],
+  ): Promise<CourseInput[]> {
+    const parsedLabel = parseSemesterLabel(semesterLabel);
+    if (!parsedLabel) {
+      return courses.map((c) => ({ name: c.name, code: null, category: null, credit: 0 }));
+    }
+
+    const matchedResults = await this.offeringMatcher.matchMany(universityId, parsedLabel.year, parsedLabel.term, courses);
+
+    return courses.map((c, i) => {
+      const matched = matchedResults[i];
+      return matched
+        ? { name: c.name, code: matched.code, category: matched.category, credit: matched.credit }
+        : { name: c.name, code: null, category: null, credit: 0 };
+    });
   }
 
   async syncFromText(profile: Profile, semesterLabel: string, rawText: string) {
@@ -154,7 +182,7 @@ export class EverytimeService {
           code: c.code,
           category: c.category,
           credit: c.credit,
-          general: !c.code,
+          general: c.category ? c.category.includes('교양') : !c.code,
           source,
         })),
       });

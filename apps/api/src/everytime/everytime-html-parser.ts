@@ -5,6 +5,7 @@ export interface CrawledCourse {
   code: string | null;
   category: string | null;
   credit: number;
+  professor: string | null;
 }
 
 export interface CrawledSemesterLink {
@@ -26,6 +27,7 @@ const SELECTORS = {
   courseItem: '.tablebody .subject',
   courseName: 'h3',
   courseInfo: 'p',
+  professor: 'p em',
   semesterLinkList: 'aside .menu ol li a',
   activeSemesterLabel: 'aside .menu ol li.active a',
 };
@@ -41,7 +43,8 @@ export function parseTimetableHtml(html: string, baseUrl: string): ParsedTimetab
     if (!name || !infoText) return;
     // 같은 과목이 요일이 다른 여러 시간 블록으로 나뉘어 렌더링되는 경우가 있어 이름 기준 중복 제거
     if (courses.some((c) => c.name === name)) return;
-    courses.push({ name, code: null, category: null, credit: 0 });
+    const professor = $(el).find(SELECTORS.professor).first().text().trim() || null;
+    courses.push({ name, code: null, category: null, credit: 0, professor });
   });
 
   const semesterLinks: CrawledSemesterLink[] = [];

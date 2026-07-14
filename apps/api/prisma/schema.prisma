@@ -17,6 +17,7 @@ model University {
   colleges      College[]
   profiles      Profile[]
   catalogChecks CatalogCatholicCheck[]
+  courseOfferings CourseOffering[]
 
   @@map("universities")
 }
@@ -171,6 +172,30 @@ model CatalogCourse {
   @@unique([departmentId, code])
   @@index([departmentId])
   @@map("catalog_courses")
+}
+
+// 트리니티(uportal) 학기별 개설과목 리스트 엑셀을 수동 임포트한 데이터([[issue/[FEAT#19] 크롤링 과목 자동 과목코드 매칭 (요람 대조)]]).
+// 요람(CatalogCourse)과 달리 "그 학기에 실제로 개설된 강좌"라 담당교수/분반이 있고, 같은 code를
+// 여러 학과가 서로 다른 분반으로 공유 개설하는 경우도 있어 학과 FK 없이 원문 학과명만 저장한다.
+// 에브리타임 크롤러가 과목코드/학점을 못 얻는 문제를 이 데이터와 (과목명 + 담당교수) 매칭으로 보완한다.
+model CourseOffering {
+  id             Int    @id @default(autoincrement())
+  universityId   Int    @map("university_id")
+  year           Int
+  term           String // '1학기' | '2학기' | '하계계절학기' | '동계계절학기'
+  code           String
+  name           String
+  section        String
+  professor      String
+  credit         Int
+  category       String
+  departmentName String @map("department_name") // 엑셀 원문("개설전공(과)") 그대로, Department FK 아님
+
+  university University @relation(fields: [universityId], references: [id])
+
+  @@unique([universityId, year, term, code, section])
+  @@index([universityId, year, term, name])
+  @@map("course_offerings")
 }
 
 // 실제 졸업요건은 "트랙별 필수과목 리스트"가 아니라 학과별 "졸업종합시험 + 대체규정" 구조라

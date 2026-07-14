@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
     "seed": "ts-node prisma/seed.ts",
-    "crawl:catalog": "ts-node scripts/crawl-catalog.ts"
+    "crawl:catalog": "ts-node scripts/crawl-catalog.ts",
+    "import:offerings": "ts-node scripts/import-course-offerings.ts"
   },
   "dependencies": {
     "@canyougraduate/shared-types": "*",
@@ -19,6 +20,7 @@
     "@nestjs/platform-express": "^10.4.4",
     "@prisma/client": "^5.19.1",
     "cheerio": "^1.0.0",
+    "exceljs": "^4.4.0",
     "playwright": "^1.47.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
