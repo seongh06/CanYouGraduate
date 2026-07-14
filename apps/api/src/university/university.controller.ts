@@ -18,9 +18,17 @@ export class UniversityController {
     return this.universityService.listUniversities();
   }
 
+  @Get('colleges')
+  listColleges(@Query('universityId') universityId?: string) {
+    return this.universityService.listColleges(parseRequiredIntId(universityId, 'universityId'));
+  }
+
   @Get('departments')
-  listDepartments(@Query('universityId') universityId?: string) {
-    return this.universityService.listDepartments(parseRequiredIntId(universityId, 'universityId'));
+  listDepartments(@Query('universityId') universityId?: string, @Query('collegeId') collegeId?: string) {
+    return this.universityService.listDepartments(
+      parseRequiredIntId(universityId, 'universityId'),
+      collegeId !== undefined ? Number(collegeId) : undefined,
+    );
   }
 
   @Get('departments/:departmentId/tracks')
