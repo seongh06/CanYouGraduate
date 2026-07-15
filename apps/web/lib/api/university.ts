@@ -23,7 +23,7 @@ export interface DepartmentItem {
 export interface TrackItem {
   id: number;
   name: string;
-  requiredCourseCount: number;
+  requiredCourseCount: number | null;
 }
 
 export function listUniversities() {
