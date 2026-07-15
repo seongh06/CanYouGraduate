@@ -75,8 +75,11 @@ export function LanguageAndThesisCard({
       )}
 
       <div>
-        <div className="mb-2 text-[15px] font-bold">
+        <div className="mb-1 text-[15px] font-bold">
           졸업논문 / 졸업시험{thesisOptional ? ' (선택)' : ''}
+        </div>
+        <div className="mb-2 text-xs text-brand-text-muted">
+          자동으로 판정할 수 없는 항목이에요 — 학과에서 통과 처리됐는지 직접 확인 후 체크해주세요.
         </div>
         <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-brand-bg px-3.5 py-3">
           <input
@@ -85,7 +88,7 @@ export function LanguageAndThesisCard({
             onChange={(e) => onToggleThesis(e.target.checked)}
             className="h-4 w-4 accent-brand-blue"
           />
-          <span className="text-[13px] font-semibold">Pass 처리됨</span>
+          <span className="text-[13px] font-semibold">직접 확인했고, 통과했어요</span>
         </label>
       </div>
     </Card>

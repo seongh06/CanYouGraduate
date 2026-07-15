@@ -1,5 +1,11 @@
 import { apiFetch } from './client';
 
+export interface SuggestedCourses {
+  first: string[];
+  second: string[];
+  unknown: string[];
+}
+
 export interface CreditBreakdownItem {
   key: string;
   label: string;
@@ -7,12 +13,37 @@ export interface CreditBreakdownItem {
   earned: number | null;
   status: 'pass' | 'fail' | 'unavailable';
   note?: string;
+  suggestedCourses?: SuggestedCourses | null;
 }
 
 export interface CatholicCheckItem {
   key: string;
   label: string;
   checked: boolean;
+  autoDetected: boolean;
+}
+
+export interface SubstitutionRule {
+  type: string;
+  condition: string;
+  waives: number | null;
+  note?: string;
+}
+
+export interface MajorRequirementView {
+  totalCreditMin: number | null;
+  comprehensiveExam: Record<string, unknown> | null;
+  substitutionRules: SubstitutionRule[];
+  languageScoreStandard: Record<string, number> | null;
+  thesisOptional: boolean;
+}
+
+export interface SecondMajorResult extends MajorRequirementView {
+  creditBreakdown: CreditBreakdownItem[];
+}
+
+export interface SecondMajorRequirements extends MajorRequirementView {
+  creditBreakdownRequired: Record<string, number>;
 }
 
 export interface GraduationResult {
@@ -22,7 +53,8 @@ export interface GraduationResult {
   completionPercent: number | null;
   creditBreakdown: CreditBreakdownItem[];
   comprehensiveExam: Record<string, unknown> | null;
-  substitutionRules: Array<{ type: string; condition: string; waives: number | null; note?: string }>;
+  substitutionRules: SubstitutionRule[];
+  secondMajor: SecondMajorResult | null;
   languageScore: number | null;
   languageExamType: string | null;
   languageScorePass: boolean | null;
@@ -35,7 +67,8 @@ export interface GraduationRequirements {
   totalCreditMin: number | null;
   creditBreakdownRequired: Record<string, number>;
   comprehensiveExam: Record<string, unknown> | null;
-  substitutionRules: Array<{ type: string; condition: string; waives: number | null; note?: string }>;
+  substitutionRules: SubstitutionRule[];
+  secondMajor: SecondMajorRequirements | null;
   languageScoreStandard: Record<string, number> | null;
   thesisOptional: boolean;
   catholicChecks: Array<{ key: string; label: string }>;

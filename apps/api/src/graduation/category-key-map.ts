@@ -29,6 +29,17 @@ export const CATEGORY_KEY_MAP: Record<string, string[]> = {
   major: ['제1전공선택', '제1전공필수'],
 };
 
+// 복수전공(제2전공) 요건을 같은 creditBreakdown 키 체계로 재사용하기 위한 슬롯 치환.
+// CATEGORY_KEY_MAP의 카테고리 문자열은 원래 "이 학과가 제1전공일 때"를 기준으로 적혀 있어
+// ('제1전공선택' 등), 같은 학과를 제2전공(복수전공)으로 보는 시점엔 '제1전공' 접두어를
+// '제2전공'으로 치환해서 조회한다. 접두어가 없는 카테고리(기초교양필수 등)는 그대로 둔다.
+export function resolveCategories(key: string, slot: 'FIRST' | 'SECOND'): string[] | undefined {
+  const categories = CATEGORY_KEY_MAP[key];
+  if (!categories) return undefined;
+  if (slot === 'FIRST') return categories;
+  return categories.map((c) => c.replace('제1전공', '제2전공'));
+}
+
 // 사람이 읽을 라벨. 매핑 없는 키는 라벨도 없어 그대로 키를 노출.
 export const CATEGORY_KEY_LABEL: Record<string, string> = {
   기초필수: '기초교양필수',

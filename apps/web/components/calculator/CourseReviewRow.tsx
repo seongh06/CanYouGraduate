@@ -4,13 +4,32 @@ import { useState } from 'react';
 import type { CourseItem } from '../../lib/api/everytime';
 import { SubstitutionSearch } from './SubstitutionSearch';
 
+const MANUAL_CATEGORY_OPTIONS = [
+  '제1전공필수',
+  '제1전공선택',
+  '제2전공필수',
+  '제2전공선택',
+  '전공기초',
+  '기초교양필수',
+  '중핵교양필수',
+  '자유선택교양',
+];
+
 interface CourseReviewRowProps {
   course: CourseItem;
   onSetSubstitution: (courseId: number, catalogCourseId: number) => void;
+  onManualCategory: (courseId: number, input: { category: string; credit: number }) => void;
 }
 
-export function CourseReviewRow({ course, onSetSubstitution }: CourseReviewRowProps) {
+export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }: CourseReviewRowProps) {
   const [open, setOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualCategory, setManualCategory] = useState(
+    course.category && (MANUAL_CATEGORY_OPTIONS as string[]).includes(course.category)
+      ? course.category
+      : MANUAL_CATEGORY_OPTIONS[0],
+  );
+  const [manualCredit, setManualCredit] = useState(String(course.credit || 3));
 
   return (
     <div className="border-t border-brand-bg py-3 first:border-t-0">
@@ -41,12 +60,57 @@ export function CourseReviewRow({ course, onSetSubstitution }: CourseReviewRowPr
         </button>
       </div>
       {open && (
-        <SubstitutionSearch
-          onPick={(catalogCourseId) => {
-            onSetSubstitution(course.id, catalogCourseId);
-            setOpen(false);
-          }}
-        />
+        <>
+          <SubstitutionSearch
+            onPick={(catalogCourseId) => {
+              onSetSubstitution(course.id, catalogCourseId);
+              setOpen(false);
+            }}
+          />
+          {!manualOpen ? (
+            <button
+              onClick={() => setManualOpen(true)}
+              className="mt-2 text-xs font-bold text-brand-text-muted underline"
+            >
+              요람에 없는 과목인가요? (공유대학 등) 이수구분 직접 입력하기
+            </button>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-brand-border bg-[#F8F9FA] p-3">
+              <select
+                value={manualCategory}
+                onChange={(e) => setManualCategory(e.target.value)}
+                className="h-9 rounded-lg border-[1.5px] border-brand-border bg-white px-2.5 text-xs outline-none"
+              >
+                {MANUAL_CATEGORY_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={manualCredit}
+                onChange={(e) => setManualCredit(e.target.value)}
+                placeholder="학점"
+                className="h-9 w-16 rounded-lg border-[1.5px] border-brand-border bg-white px-2.5 text-xs outline-none"
+              />
+              <button
+                onClick={() => {
+                  const n = Number(manualCredit);
+                  if (!Number.isInteger(n) || n < 0) return;
+                  onManualCategory(course.id, { category: manualCategory, credit: n });
+                  setManualOpen(false);
+                  setOpen(false);
+                }}
+                className="h-9 rounded-lg bg-brand-blue px-3 text-xs font-bold text-white"
+              >
+                저장
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

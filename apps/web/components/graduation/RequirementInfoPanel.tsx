@@ -20,6 +20,26 @@ const FIELD_LABEL: Record<string, string> = {
   requiredAreas: '필수 영역',
   electiveAreas: '선택 영역',
   passingRule: '합격 기준',
+  hasExam: '졸업시험 여부',
+  detail: '상세 내용',
+  examSubjects: '시험 과목',
+};
+
+// substitutionRules[].type 영문 코드를 사람이 읽을 라벨/배지 스타일로.
+const RULE_TYPE_LABEL: Record<string, string> = {
+  LANGUAGE: '언어',
+  CERTIFICATE: '자격증',
+  COMPETITION: '대회',
+  THESIS: '논문',
+  OTHER: '기타',
+};
+
+const RULE_TYPE_STYLE: Record<string, string> = {
+  LANGUAGE: 'bg-[#EAF2FF] text-brand-blue',
+  CERTIFICATE: 'bg-[#F3EAFB] text-[#8B5CF6]',
+  COMPETITION: 'bg-[#FFF3E0] text-[#E08A00]',
+  THESIS: 'bg-[#E7F6EE] text-brand-success',
+  OTHER: 'bg-[#EAECEF] text-brand-text-muted',
 };
 
 function formatValue(value: unknown): string {
@@ -38,23 +58,30 @@ export function RequirementInfoPanel({ comprehensiveExam, substitutionRules }: R
       </div>
 
       {comprehensiveExam && (
-        <div className="mb-3 flex flex-col gap-1.5 rounded-xl bg-brand-bg px-3.5 py-3">
+        <div className="mb-3 flex flex-col gap-2 rounded-xl bg-brand-bg px-3.5 py-3">
           {Object.entries(comprehensiveExam).map(([key, value]) => (
             <div key={key} className="text-[13px]">
-              <span className="font-bold">{FIELD_LABEL[key] ?? key}: </span>
-              <span className="text-brand-text-muted">{formatValue(value)}</span>
+              <div className="font-bold">{FIELD_LABEL[key] ?? key}</div>
+              <div className="mt-0.5 text-brand-text-muted">{formatValue(value)}</div>
             </div>
           ))}
         </div>
       )}
 
       {substitutionRules.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           {substitutionRules.map((rule, i) => (
-            <div key={i} className="rounded-xl border border-dashed border-brand-border px-3.5 py-2.5 text-[13px]">
-              <span className="font-bold">[{rule.type}]</span> {rule.condition}
+            <div key={i} className="rounded-xl border border-brand-border px-3.5 py-3 text-[13px]">
+              <span
+                className={`mr-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  RULE_TYPE_STYLE[rule.type] ?? RULE_TYPE_STYLE.OTHER
+                }`}
+              >
+                {RULE_TYPE_LABEL[rule.type] ?? rule.type}
+              </span>
+              {rule.condition}
               {rule.waives !== null && <span className="text-brand-text-muted"> — {rule.waives}과목 면제</span>}
-              {rule.note && <span className="text-brand-text-muted"> ({rule.note})</span>}
+              {rule.note && <div className="mt-1 text-xs text-brand-text-muted">{rule.note}</div>}
             </div>
           ))}
         </div>

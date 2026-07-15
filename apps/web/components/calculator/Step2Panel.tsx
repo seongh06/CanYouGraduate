@@ -2,7 +2,7 @@
 
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { setSubstitution } from '../../lib/api/courses';
+import { setSubstitution, updateCourse } from '../../lib/api/courses';
 import { listDuplicates, toggleRetake } from '../../lib/api/duplicates';
 import { listCourses, listSemesters } from '../../lib/api/everytime';
 import { useSession } from '../../lib/session';
@@ -65,6 +65,12 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
     onSuccess: invalidateAll,
   });
 
+  const manualCategoryMutation = useMutation({
+    mutationFn: ({ courseId, category, credit }: { courseId: number; category: string; credit: number }) =>
+      updateCourse(sessionId as string, courseId, { category, credit }),
+    onSuccess: invalidateAll,
+  });
+
   return (
     <div className="pb-24">
       <RetakeBanner
@@ -80,6 +86,7 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
           onSetSubstitution={(courseId, catalogCourseId) =>
             setSubstitutionMutation.mutate({ courseId, catalogCourseId })
           }
+          onManualCategory={(courseId, input) => manualCategoryMutation.mutate({ courseId, ...input })}
         />
       ))}
       <div className="fixed inset-x-0 bottom-7 flex justify-center px-4">
