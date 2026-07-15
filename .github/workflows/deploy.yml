@@ -26,6 +26,10 @@ jobs:
         run: |
           docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . run --rm -w /repo/apps/api api npx prisma migrate deploy
 
+      - name: Run Prisma seed
+        run: |
+          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . run --rm -w /repo/apps/api api npx prisma db seed
+
       - name: Restart services
         run: |
           docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . up -d
