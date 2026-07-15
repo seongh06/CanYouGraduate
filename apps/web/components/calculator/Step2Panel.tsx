@@ -87,7 +87,7 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
           onClick={onCalculate}
           className="rounded-full bg-brand-blue px-9 py-4 text-[15px] font-extrabold text-white shadow-[0_10px_24px_rgba(49,130,246,0.35)]"
         >
-          학점 계산하기 →
+          졸업 가능 여부 확인하기 →
         </button>
       </div>
     </div>
