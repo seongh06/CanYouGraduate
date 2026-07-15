@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError } from '../../../lib/api/client';
 import {
   calculateGraduation,
@@ -11,12 +11,14 @@ import {
   updateLanguageScore,
   updateThesis,
 } from '../../../lib/api/graduation';
+import { getProfile, updateProfile } from '../../../lib/api/profile';
 import { useSession } from '../../../lib/session';
 import { CatholicChecklist } from '../../../components/graduation/CatholicChecklist';
 import { CreditBreakdownList } from '../../../components/graduation/CreditBreakdownList';
 import { LanguageAndThesisCard } from '../../../components/graduation/LanguageAndThesisCard';
 import { RequirementInfoPanel } from '../../../components/graduation/RequirementInfoPanel';
 import { SummaryGauge } from '../../../components/graduation/SummaryGauge';
+import { TrackPreviewSelector } from '../../../components/graduation/TrackPreviewSelector';
 import { Card } from '../../../components/ui/Card';
 
 type MajorTab = 'FIRST' | 'SECOND';
@@ -26,18 +28,39 @@ export default function ResultPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<MajorTab>('FIRST');
 
+  const profileQuery = useQuery({
+    queryKey: ['profile', sessionId],
+    queryFn: () => getProfile(sessionId as string),
+    enabled: !!sessionId,
+  });
+
+  // 트랙 미리보기: 프로필에 저장된 값으로 초기화하고, 사용자가 직접 건드리기 전까지는
+  // 프로필이 갱신될 때(예: 확정 버튼으로 저장 후) 계속 그 값을 따라간다.
+  const [previewTrackId, setPreviewTrackId] = useState<number | null>(null);
+  const [trackTouched, setTrackTouched] = useState(false);
+  useEffect(() => {
+    if (!trackTouched && profileQuery.data) {
+      setPreviewTrackId(profileQuery.data.majorTrack?.id ?? null);
+    }
+  }, [profileQuery.data, trackTouched]);
+
   const query = useQuery({
-    queryKey: ['graduation', 'calculate', sessionId],
-    queryFn: () => calculateGraduation(sessionId as string),
+    queryKey: ['graduation', 'calculate', sessionId, previewTrackId],
+    queryFn: () => calculateGraduation(sessionId as string, previewTrackId),
     enabled: !!sessionId,
     retry: false,
   });
 
   const requirementsQuery = useQuery({
-    queryKey: ['graduation', 'requirements', sessionId],
-    queryFn: () => getGraduationRequirements(sessionId as string),
+    queryKey: ['graduation', 'requirements', sessionId, previewTrackId],
+    queryFn: () => getGraduationRequirements(sessionId as string, previewTrackId),
     enabled: !!sessionId,
     retry: false,
+  });
+
+  const confirmTrackMutation = useMutation({
+    mutationFn: (trackId: number | null) => updateProfile(sessionId as string, { majorTrackId: trackId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile', sessionId] }),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['graduation', 'calculate', sessionId] });
@@ -102,6 +125,20 @@ export default function ResultPage() {
         remainingCredits={data.remainingCredits}
         completionPercent={data.completionPercent}
       />
+
+      {profileQuery.data && (
+        <TrackPreviewSelector
+          departmentId={profileQuery.data.majorDepartment.id}
+          previewTrackId={previewTrackId}
+          savedTrackId={profileQuery.data.majorTrack?.id ?? null}
+          onChange={(trackId) => {
+            setTrackTouched(true);
+            setPreviewTrackId(trackId);
+          }}
+          onConfirm={() => confirmTrackMutation.mutate(previewTrackId)}
+          confirming={confirmTrackMutation.isPending}
+        />
+      )}
 
       {hasSecondMajor && (
         <div className="mb-3.5 flex gap-1.5 rounded-xl bg-brand-bg p-1">

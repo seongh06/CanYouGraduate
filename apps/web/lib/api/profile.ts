@@ -41,3 +41,17 @@ export interface ProfileDetail {
 export function getProfile(sessionId: string) {
   return apiFetch<ProfileDetail>('/api/profile', { sessionId });
 }
+
+export interface UpdateProfileInput {
+  majorDepartmentId?: number;
+  majorTrackId?: number | null;
+  programType?: ProgramType;
+  secondMajorDepartmentId?: number | null;
+  secondMajorTrackId?: number | null;
+  minorDepartmentId?: number | null;
+  hasMicroDegree?: boolean;
+}
+
+export function updateProfile(sessionId: string, body: UpdateProfileInput) {
+  return apiFetch<null>('/api/profile', { method: 'PATCH', sessionId, body });
+}

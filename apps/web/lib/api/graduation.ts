@@ -74,12 +74,15 @@ export interface GraduationRequirements {
   catholicChecks: Array<{ key: string; label: string }>;
 }
 
-export function getGraduationRequirements(sessionId: string) {
-  return apiFetch<GraduationRequirements>('/api/graduation/requirements', { sessionId });
+// trackId: 결과화면 트랙 미리보기용 — 있으면 프로필 저장값 대신 이 트랙 기준으로 조회한다.
+export function getGraduationRequirements(sessionId: string, trackId?: number | null) {
+  const query = trackId ? `?trackId=${trackId}` : '';
+  return apiFetch<GraduationRequirements>(`/api/graduation/requirements${query}`, { sessionId });
 }
 
-export function calculateGraduation(sessionId: string) {
-  return apiFetch<GraduationResult>('/api/graduation/calculate', { method: 'POST', sessionId });
+export function calculateGraduation(sessionId: string, trackId?: number | null) {
+  const query = trackId ? `?trackId=${trackId}` : '';
+  return apiFetch<GraduationResult>(`/api/graduation/calculate${query}`, { method: 'POST', sessionId });
 }
 
 export function updateCatholicCheck(sessionId: string, checkKey: string, checked: boolean) {
