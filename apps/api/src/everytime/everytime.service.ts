@@ -21,6 +21,19 @@ const SECOND_MAJOR_CATEGORY_REMAP: Record<string, string> = {
   제1전공필수: '제2전공필수',
 };
 
+// 제1/2전공 어디에도 속하지 않는 학과가 개설한 과목은 원본이 "필수"였어도 이 학생에게는
+// 필수일 수가 없다(그 학과 자신의 커리큘럼상 필수라는 뜻이지 이 학생의 전공 요건이 아님) —
+// 선택/필수 구분 없이 전부 "타전공선택"으로 통일한다.
+const OTHER_MAJOR_CATEGORY_REMAP: Record<string, string> = {
+  제1전공선택: '타전공선택',
+  제1전공필수: '타전공선택',
+};
+
+// 재분류 판단 대상은 "전공" 계열 라벨뿐이다 — 전공기초/교양 라벨은 이미 그대로 둬도 되는 경우가
+// 대부분이라(전공기초는 제1/2전공 어느 쪽에서 들어도 그대로 전공기초로 취급하기로 함, 사용자 확인
+// 대상 밖) 재분류 대상에서 제외한다.
+const OWN_MAJOR_CATEGORIES = new Set(['제1전공선택', '제1전공필수']);
+
 interface CourseInput {
   name: string;
   code: string | null;
@@ -104,9 +117,12 @@ export class EverytimeService {
       parsedLabel.term,
       courses,
     );
-    const secondMajorDept = profile.secondMajorDepartmentId
-      ? await this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
-      : null;
+    const [majorDept, secondMajorDept] = await Promise.all([
+      this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } }),
+      profile.secondMajorDepartmentId
+        ? this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
+        : Promise.resolve(null),
+    ]);
 
     return courses.map((c, i) => {
       const matched = matchedResults[i];
@@ -121,10 +137,7 @@ export class EverytimeService {
         };
       }
 
-      const category =
-        secondMajorDept && matched.departmentName === secondMajorDept.name && SECOND_MAJOR_CATEGORY_REMAP[matched.category]
-          ? SECOND_MAJOR_CATEGORY_REMAP[matched.category]
-          : matched.category;
+      const category = this.reclassifyCategory(matched.category, matched.departmentName, majorDept?.name ?? null, secondMajorDept?.name ?? null);
 
       return {
         name: c.name,
@@ -135,6 +148,26 @@ export class EverytimeService {
         foreignLanguageType: matched.foreignLanguageType,
       };
     });
+  }
+
+  // 개설과목 데이터의 이수구분은 "그 과목을 개설한 학과 자신의 커리큘럼 기준"으로만 표기된다.
+  // 학생 본인의 제1전공이 개설한 과목이면 라벨 그대로("제1전공선택"), 제2전공(복수전공)이 개설한
+  // 과목이면 "제2전공선택/필수"로 바로잡는다(FIX#28). 제1/2전공 어디에도 속하지 않는 제3의 학과가
+  // 개설한 과목(공유대학 등)은 원본 라벨이 "제1전공선택"이어도 이 학생 입장에서는 전공 요건이
+  // 아니다(사용자 확인 — 포트폴리오와프레젠테이션이 무관한 학과 소속인데 전공으로 판정되던 문제).
+  // "자유선택교양"으로 뭉뚱그리지 않고 "타전공선택/필수"로 남겨 어느 학과 과목인지(offeringDepartmentName)
+  // 화면에 같이 보여줄 수 있게 한다 — 학점 계산에서는 category-key-map.ts가 자유선택교양과 동일하게
+  // 취급한다.
+  private reclassifyCategory(
+    category: string,
+    offeringDepartmentName: string,
+    majorDeptName: string | null,
+    secondMajorDeptName: string | null,
+  ): string {
+    if (!OWN_MAJOR_CATEGORIES.has(category)) return category;
+    if (offeringDepartmentName === majorDeptName) return category;
+    if (offeringDepartmentName === secondMajorDeptName) return SECOND_MAJOR_CATEGORY_REMAP[category] ?? category;
+    return OTHER_MAJOR_CATEGORY_REMAP[category] ?? category;
   }
 
   async syncFromText(profile: Profile, semesterLabel: string, rawText: string) {
@@ -235,6 +268,7 @@ export class EverytimeService {
         credit: c.credit,
         general: c.general,
         foreignLanguageType: c.foreignLanguageType,
+        offeringDepartmentName: c.offeringDepartmentName,
         isDuplicate: (nameCounts.get(c.name) ?? 0) > 1,
         needsSubstitution: !c.general && !c.code && !c.substitution,
         substitutionName: c.substitution?.name ?? null,
