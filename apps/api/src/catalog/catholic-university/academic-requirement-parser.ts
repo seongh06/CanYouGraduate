@@ -8,6 +8,10 @@ export interface ParsedAcademicRequirement {
   creditBreakdown: Record<string, number> | null;
   comprehensiveExam: { majorRequiredCount: number | null; doubleMajorRequiredCount: number | null } | null;
   substitutionRules: Array<{ type: string; condition: string; waives: number | null }>;
+  // academic.do 본문에 데이터가 없어 공지사항 게시판 폴백으로 얻은 결과인 경우에만 채워진다
+  // (catalog-crawler.service.ts의 fetchAcademicRequirementFromNoticeBoard 참고).
+  dataSource?: 'PAGE_DIRECT' | 'NOTICE_BOARD_DIRECT' | 'NOTICE_ATTACHMENT';
+  attachmentUrl?: string | null;
 }
 
 function findTableByCaption($: CheerioAPI, captionIncludes: string): Cheerio<Element> | null {

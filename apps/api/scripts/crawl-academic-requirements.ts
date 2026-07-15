@@ -9,9 +9,14 @@ function sleep(ms: number) {
 
 async function main() {
   const crawler = new CatalogCrawlerService();
-  // other-campus(성의/성신교정)는 기존 요람 크롤러와 동일하게 자동 크롤링 대상에서 제외.
+  // other-campus(성의/성신교정)와 행정단위(자유전공학부 등, 패턴 ⑱)는 자동 크롤링 대상에서 제외.
   const departments = await prisma.department.findMany({
-    where: { domainSlug: { not: null }, baseUrl: { not: null }, urlPattern: { not: 'other-campus' } },
+    where: {
+      domainSlug: { not: null },
+      baseUrl: { not: null },
+      urlPattern: { not: 'other-campus' },
+      isAdministrativeUnit: false,
+    },
   });
 
   let success = 0;
@@ -25,27 +30,34 @@ async function main() {
         domainSlug: dept.domainSlug,
         baseUrl: dept.baseUrl,
         urlPattern: dept.urlPattern,
+        academicRequirementUrl: dept.academicRequirementUrl,
       });
 
-      await prisma.catalogGraduationRequirement.upsert({
-        where: {
-          departmentId_admissionYearFrom: { departmentId: dept.id, admissionYearFrom: parsed.admissionYearFrom ?? 2018 },
-        },
-        update: {
-          totalCreditMin: parsed.totalCreditMin,
-          creditBreakdown: parsed.creditBreakdown ?? Prisma.JsonNull,
-          comprehensiveExam: parsed.comprehensiveExam ?? Prisma.JsonNull,
-          substitutionRules: parsed.substitutionRules,
-        },
-        create: {
-          departmentId: dept.id,
-          admissionYearFrom: parsed.admissionYearFrom ?? 2018,
-          totalCreditMin: parsed.totalCreditMin,
-          creditBreakdown: parsed.creditBreakdown ?? Prisma.JsonNull,
-          comprehensiveExam: parsed.comprehensiveExam ?? Prisma.JsonNull,
-          substitutionRules: parsed.substitutionRules,
-        },
+      // 이 스크립트는 트랙/학번군이 분리된 시드 데이터를 세밀하게 갱신하지 않는다 — 트랙이 없는
+      // 학과의 "대표 행"(trackId: null)만 자동 재크롤링 대상으로 삼고, 트랙별/학번군별로 갈리는
+      // 세부 데이터는 seed.ts의 수동 조사 데이터를 그대로 신뢰한다(덮어쓰지 않는다).
+      const existing = await prisma.catalogGraduationRequirement.findFirst({
+        where: { departmentId: dept.id, trackId: null },
+        orderBy: { id: 'asc' },
       });
+
+      const data = {
+        totalCreditMin: parsed.totalCreditMin,
+        creditBreakdown: parsed.creditBreakdown ?? Prisma.JsonNull,
+        comprehensiveExam: parsed.comprehensiveExam ?? Prisma.JsonNull,
+        substitutionRules: parsed.substitutionRules,
+        admissionYearFrom: parsed.admissionYearFrom ?? undefined,
+        dataSource: parsed.dataSource === 'NOTICE_ATTACHMENT' ? ('NOTICE_ATTACHMENT' as const) : ('PAGE_DIRECT' as const),
+        attachmentUrl: parsed.attachmentUrl ?? null,
+      };
+
+      if (existing) {
+        await prisma.catalogGraduationRequirement.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.catalogGraduationRequirement.create({
+          data: { departmentId: dept.id, cohortLabel: '자동 크롤링(학번군 미분류)', ...data },
+        });
+      }
 
       success += 1;
       // eslint-disable-next-line no-console

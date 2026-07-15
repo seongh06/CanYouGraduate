@@ -47,6 +47,12 @@ model Department {
   domainSlug             String?                        @map("domain_slug")
   baseUrl                String?                        @map("base_url")
   urlPattern             String                         @default("standard") @map("url_pattern") // 'standard' | 'subdirectory' | 'other-campus'
+  // 학사정보(졸업요건) 페이지가 표준 {baseUrl}/{domainSlug}/course/academic.do 경로가 아닌 학과용 override
+  // (스니펫 조사서 패턴 ⑦). 표준 경로를 쓰는 대부분 학과는 null — 크롤러가 도메인/슬러그로 조립한다.
+  academicRequirementUrl String?                        @map("academic_requirement_url")
+  // 자유전공학부/융합전공학부/교직과/학부대학처럼 학위를 수여하는 실제 "학과"가 아니라 행정단위인 경우 true
+  // (설계서 v2·스키마설계노트 v3 패턴 ⑱). true인 Department는 CatalogGraduationRequirement를 갖지 않는다.
+  isAdministrativeUnit   Boolean                        @default(false) @map("is_administrative_unit")
   university             University                     @relation(fields: [universityId], references: [id])
   college                College?                       @relation(fields: [collegeId], references: [id])
   tracks                 Track[]
@@ -62,13 +68,16 @@ model Department {
 }
 
 model Track {
-  id                       Int        @id @default(autoincrement())
-  departmentId             Int        @map("department_id")
+  id                       Int                            @id @default(autoincrement())
+  departmentId             Int                            @map("department_id")
   name                     String
-  requiredCourseCount      Int        @map("required_course_count")
-  department               Department @relation(fields: [departmentId], references: [id])
-  majorTrackProfiles       Profile[]  @relation("MajorTrack")
-  secondMajorTrackProfiles Profile[]  @relation("SecondMajorTrack")
+  // 구 "트랙별 필수과목 리스트" 모델의 잔재 필드 — CatalogGraduationRequirement(JSON 기반)로 대체된 뒤
+  // 트랙 자체는 유지되지만 트랙 단위 필수과목 수 개념이 없는 학과(mtc/is 등)가 있어 nullable로 완화.
+  requiredCourseCount      Int?                           @map("required_course_count")
+  department               Department                     @relation(fields: [departmentId], references: [id])
+  majorTrackProfiles       Profile[]                      @relation("MajorTrack")
+  secondMajorTrackProfiles Profile[]                      @relation("SecondMajorTrack")
+  graduationRequirements   CatalogGraduationRequirement[]
 
   @@index([departmentId])
   @@map("tracks")
@@ -205,27 +214,93 @@ model CourseOffering {
   @@map("course_offerings")
 }
 
-// 실제 졸업요건은 "트랙별 필수과목 리스트"가 아니라 학과별 "졸업종합시험 + 대체규정" 구조라
-// (심화전공/복수전공 과목 수, TOEIC/자격증/논문/공모전 대체 등 학과마다 상이) JSON 기반 반구조화 모델로 설계.
-// comprehensiveExam/substitutionRules/creditBreakdown 형식은 구현 방식 문서·설계서 v2 참고.
+// 43개 학과 전수조사(가톨릭대_학과별_졸업요건_스키마_v3.xlsx) 결과 반영. 졸업요건은 학과 단위가 아니라
+// (학과 × 트랙 × 전공유형 × 적용학번/졸업시점) 조합 단위로 갈리고, "대체 옵션 중 택1"과 "전원 필수 병렬요건"이
+// 섞여 있는 학과가 많아(스키마설계노트 v3 패턴 ①~⑳) 아래처럼 축을 명시적으로 분리했다. JSON 필드는 모두
+// "null=미확인" vs "확인된 값(빈 배열 포함)" 을 구분해서 채운다 — 빈 배열은 "조사해서 해당없음을 확인함"을
+// 의미하고, null은 "아직 조사 못함"을 의미한다(패턴 ⑥).
+//
+// substitutionRules: Array<{ type: string; condition: string; scope?: 'FULL'|'PARTIAL'; waives?: number|null;
+//   trackRestriction?: string|null; note?: string }> — 졸업시험/논문 등 기본요건을 "택1로 대체"할 수 있는 옵션들.
+// mandatoryRequirements: Array<{ type: string; condition: string; note?: string }> — 대체가 아니라 전원이
+//   추가로 반드시 충족해야 하는 병렬요건(패턴 ⑤⑨⑪). substitutionRules와 AND 관계.
+// scoreItems: Array<{ label: string; weightPercent?: number; maxScore?: number; note?: string }> — 점수누적형
+//   (패턴 ⑬)의 항목별 배점. pointThreshold(총점 기준)와 함께 쓰인다.
 model CatalogGraduationRequirement {
-  id                Int  @id @default(autoincrement())
-  departmentId      Int  @map("department_id")
-  admissionYearFrom Int  @map("admission_year_from")
-  admissionYearTo   Int? @map("admission_year_to")
+  id           Int  @id @default(autoincrement())
+  departmentId Int  @map("department_id")
+  // 트랙별로 요건이 갈리는 학과(mtc/is 등, 패턴 ①)만 채움. 트랙 구분 자체가 없는 학과는 null.
+  trackId      Int? @map("track_id")
 
-  totalCreditMin        Int?    @map("total_credit_min")
-  creditBreakdown       Json?   @map("credit_breakdown")
-  comprehensiveExam     Json?   @map("comprehensive_exam")
+  // 적용학번 축(패턴 ②⑧) — admissionYearFrom/To는 파싱 가능한 경우의 최선 근사치이고, cohortLabel이
+  // 원문 그대로의 근거(source of truth)다. 학번군 세분화 정도가 학과마다 달라 고정 enum 대신 자유 구간으로 둔다.
+  admissionYearFrom  Int?             @map("admission_year_from")
+  admissionYearTo    Int?             @map("admission_year_to")
+  cohortLabel        String           @map("cohort_label")
+  // 정보통신전자공학부처럼 "졸업시점" 기준으로 제도가 통째로 바뀌는 경우(패턴 ⑫) — basis가 GRADUATION_DATE면
+  // admissionYearFrom/To 대신 graduationDateFrom("2025-08" 형태)이 실제 적용 기준이다.
+  basis              RequirementBasis @default(ADMISSION_YEAR) @map("basis")
+  graduationDateFrom String?          @map("graduation_date_from")
+
+  // 제1전공(전공심화 포함) vs 복수전공자 요건이 갈리는 경우(패턴 ⑭, 예: 생명공학과)만 ALL이 아닌 값을 쓴다.
+  scope RequirementScope @default(ALL) @map("scope")
+
+  totalCreditMin  Int?  @map("total_credit_min")
+  creditBreakdown Json? @map("credit_breakdown")
+
+  // 시험/논문 단일 판정이 아니라 여러 활동에 배점을 매겨 합산하는 학과(패턴 ⑬)는 scoringMethod가
+  // POINT_ACCUMULATION이고 scoreItems/pointThreshold를 쓴다. 그 외엔 PASS_FAIL + comprehensiveExam.
+  scoringMethod     ScoringMethod @default(PASS_FAIL) @map("scoring_method")
+  comprehensiveExam Json?         @map("comprehensive_exam")
+  scoreItems        Json?         @map("score_items")
+  pointThreshold    Int?          @map("point_threshold")
+
+  mandatoryRequirements Json?   @map("mandatory_requirements")
   substitutionRules     Json    @default("[]") @map("substitution_rules")
   languageScoreStandard Json?   @map("language_score_standard")
   thesisOptional        Boolean @default(false) @map("thesis_optional")
+  // "대체시_트랙제한" 원문 — 대체 옵션이 특정 트랙에만 열려있는 경우(예: mtc 자격증 대체는 미디어공학트랙 전용).
+  trackRestrictionNote  String? @map("track_restriction_note")
+
+  // 데이터 신뢰도(패턴 ⑮) — Claude Code 세션이 catholic.ac.kr 403 차단 상태에서 WebSearch 스니펫만으로
+  // 조사한 행은 verified:false + dataSource:SEARCH_SNIPPET. 페이지 자체에 정보가 없던 학과(⑩)는 NOT_FOUND,
+  // 첨부파일 안에만 있는 학과(⑰)는 NOTICE_ATTACHMENT, 신설학과라 요건 자체가 없는 경우(⑲)는 NOT_YET_ESTABLISHED.
+  dataSource    RequirementDataSource @default(PAGE_DIRECT) @map("data_source")
+  verified      Boolean               @default(true) @map("verified")
+  sourceUrl     String?               @map("source_url")
+  attachmentUrl String?               @map("attachment_url")
+  notes         String?               @map("notes")
 
   department Department @relation(fields: [departmentId], references: [id])
+  track      Track?     @relation(fields: [trackId], references: [id])
 
-  @@unique([departmentId, admissionYearFrom])
   @@index([departmentId])
+  @@index([trackId])
   @@map("catalog_graduation_requirements")
+}
+
+enum RequirementScope {
+  ALL
+  FIRST_MAJOR
+  DOUBLE_MAJOR
+}
+
+enum RequirementBasis {
+  ADMISSION_YEAR
+  GRADUATION_DATE
+}
+
+enum RequirementDataSource {
+  PAGE_DIRECT
+  NOTICE_ATTACHMENT
+  SEARCH_SNIPPET
+  NOT_FOUND
+  NOT_YET_ESTABLISHED
+}
+
+enum ScoringMethod {
+  PASS_FAIL
+  POINT_ACCUMULATION
 }
 
 model CatalogCatholicCheck {
