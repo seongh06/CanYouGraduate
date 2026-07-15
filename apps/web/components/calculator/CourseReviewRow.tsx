@@ -22,6 +22,9 @@ interface CourseReviewRowProps {
 }
 
 export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }: CourseReviewRowProps) {
+  // 요람 코드도 대체인정도 없지만 이수구분은 직접 지정된 상태 — 공유대학 등 요람 밖 과목을
+  // "직접 입력하기"로 저장하고 나면 이 상태가 된다(needsSubstitution은 false로 바뀜).
+  const isManuallyCategorized = !course.code && !course.substitutionName && !!course.category;
   const [open, setOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualCategory, setManualCategory] = useState(
@@ -40,6 +43,11 @@ export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }:
             {course.needsSubstitution && (
               <span className="rounded-full bg-[#FFF1D6] px-2 py-0.5 text-[10px] font-extrabold text-[#B45309]">
                 학과개편 대상
+              </span>
+            )}
+            {isManuallyCategorized && (
+              <span className="rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[10px] font-extrabold text-brand-blue">
+                직접 입력됨(공유대학 등)
               </span>
             )}
           </div>
