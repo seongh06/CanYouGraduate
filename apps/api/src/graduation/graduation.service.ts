@@ -299,9 +299,12 @@ export class GraduationService {
     );
   }
 
-  // scope(ALL/FIRST_MAJOR/DOUBLE_MAJOR)와 track을 모두 고려한 공용 조회. 학과가 트랙별로 요건이
-  // 갈리면(트랙별 행만 존재) 학생의 트랙과 일치하는 행만, 트랙 구분이 없는 학과(트랙 없는 행만
-  // 존재)면 그대로 매치된다 — 두 종류가 한 학과에 섞이지 않는다는 시딩 전제(schema.prisma 주석)를 따른다.
+  // scope(ALL/FIRST_MAJOR/DOUBLE_MAJOR)와 track을 모두 고려한 공용 조회. 학생이 트랙을 선택한
+  // 경우에만 트랙 조건을 걸고(트랙형 학과는 그 트랙 행을, 무트랙 학과는 trackId null 행을 매치),
+  // 트랙 미선택(majorTrackId/secondMajorTrackId가 null인 프로필 — 온보딩에서 트랙 선택이 강제가
+  // 아님)이면 트랙 조건 자체를 안 건다. 안 그러면 트랙형 학과(mtc 등)에서 트랙 미선택 학생은
+  // trackId=null인 행이 애초에 없어 findFirst가 0건을 반환해 404가 난다(배포 후 실사용자 세션으로
+  // 재현·확인함).
   private findRequirementForDept(
     departmentId: number,
     trackId: number | null,
@@ -315,7 +318,7 @@ export class GraduationService {
           { OR: [{ admissionYearFrom: null }, { admissionYearFrom: { lte: admissionYear } }] },
           { OR: [{ admissionYearTo: null }, { admissionYearTo: { gte: admissionYear } }] },
           { OR: [{ scope: 'ALL' }, { scope: perspective }] },
-          { OR: trackId !== null ? [{ trackId: null }, { trackId }] : [{ trackId: null }] },
+          ...(trackId !== null ? [{ OR: [{ trackId: null }, { trackId }] }] : []),
         ],
       },
     });
