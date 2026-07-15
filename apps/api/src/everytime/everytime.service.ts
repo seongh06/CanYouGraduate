@@ -270,7 +270,10 @@ export class EverytimeService {
         foreignLanguageType: c.foreignLanguageType,
         offeringDepartmentName: c.offeringDepartmentName,
         isDuplicate: (nameCounts.get(c.name) ?? 0) > 1,
-        needsSubstitution: !c.general && !c.code && !c.substitution,
+        // 요람 코드도 대체인정도 없지만 이수구분이 직접 지정된 과목(공유대학 등 요람 밖 과목을
+        // "직접 입력하기"로 저장한 경우)은 더 이상 대체인정 대상으로 표시하지 않는다
+        // (graduation.service.ts의 needsSubstitution 판정과 동일하게 맞춤).
+        needsSubstitution: !c.general && !c.code && !c.substitution && !c.category,
         substitutionName: c.substitution?.name ?? null,
       })),
     };
