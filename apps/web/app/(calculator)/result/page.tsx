@@ -124,6 +124,8 @@ export default function ResultPage() {
         totalCreditMin={data.totalCreditMin}
         remainingCredits={data.remainingCredits}
         completionPercent={data.completionPercent}
+        creditBreakdown={data.creditBreakdown}
+        secondMajorCreditBreakdown={data.secondMajor?.creditBreakdown}
       />
 
       {profileQuery.data && (
@@ -191,6 +193,7 @@ export default function ResultPage() {
         languageScorePass={data.languageScorePass}
         thesisPass={data.thesisPass}
         thesisOptional={data.thesisOptional}
+        showThesisSection={!(data.thesisOptional && data.comprehensiveExam?.hasExam === 'N')}
         onSubmitLanguageScore={(examType, score) => languageMutation.mutate({ examType, score })}
         onToggleThesis={(pass) => thesisMutation.mutate(pass)}
       />

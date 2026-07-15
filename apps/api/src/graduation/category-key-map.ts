@@ -6,8 +6,12 @@
 //   동일하다. 초기 3개 학과(컴공/경영/수학과)는 크롤러 도입 전 영어 키로 수동 입력했던 데이터라
 //   두 체계를 모두 지원한다.
 // - 프로그램 단위(수학과형: majorDeepMin/doubleMajorMin/minorMin — 전공심화/복수전공/부전공 소속 학점)는
-//   Course에 학과 FK가 없고 category가 "1전공기준"으로만 표기돼 있어 과목이 어느 전공 소속인지
-//   구분할 수 없다 — 매핑을 만들지 않고 정보성으로만 남긴다.
+//   원래 Course에 학과 FK가 없어 과목이 어느 전공 소속인지 구분 못 해 매핑이 없었으나, FIX#28에서
+//   과목 category 자체가 "제1전공선택/필수" vs "제2전공선택/필수"로 재분류되면서(everytime.service.ts
+//   reclassifyCategory) 이제 구분 가능해졌다 — majorDeepMin/doubleMajorMin 둘 다 "그 슬롯의 전공
+//   과목"이라는 같은 카테고리 집합을 쓰고(둘의 차이는 학점 기준(threshold)일 뿐, 어떤 과목이 세는지는
+//   같음), graduation.service.ts가 programType/슬롯에 따라 둘 중 적용되는 쪽만 골라 보여준다.
+//   minorMin(부전공)은 부전공 과목에 대한 별도 category 라벨이 없어 여전히 매핑하지 않는다.
 export const CATEGORY_KEY_MAP: Record<string, string[]> = {
   // 크롤러(academic-requirement-parser.ts)가 실제 학과 사이트 표 헤더를 그대로 키로 쓴 경우
   기초필수: ['기초교양필수'],
@@ -27,6 +31,11 @@ export const CATEGORY_KEY_MAP: Record<string, string[]> = {
   general: ['자유선택교양', '타전공선택'],
   majorBasic: ['전공기초'],
   major: ['제1전공선택', '제1전공필수'],
+
+  // 수학과형 프로그램 단위 키 — 위 주석 참고. majorDeepMin(전공심화 기준)과 doubleMajorMin(복수전공
+  // 기준)은 실제로 세는 과목(제1/2전공선택+필수)이 같고 학점 기준만 다르므로 카테고리 집합은 동일하게 둔다.
+  majorDeepMin: ['제1전공선택', '제1전공필수'],
+  doubleMajorMin: ['제1전공선택', '제1전공필수'],
 };
 
 // 복수전공(제2전공) 요건을 같은 creditBreakdown 키 체계로 재사용하기 위한 슬롯 치환.

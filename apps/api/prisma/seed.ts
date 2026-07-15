@@ -383,15 +383,24 @@ async function main() {
     sourceUrl?: string;
   }
 
+  // 1학년 1학기부터 순서대로: 인간학1 → 인간학2 → 키스톤디자인(인문창의/창의설계 2과목) →
+  // (2학년) 그리스도교사상과문화 → 사랑나누기. 키스톤디자인은 원래 한 항목으로 시딩했었으나
+  // 실제로는 서로 다른 두 과목(인문창의/탐구소통 + 창의설계)이라 분리한다(사용자 지적).
   const CATHOLIC_CHECKS: CatholicCheckSeed[] = [
     { id: 1, key: 'humanities1', label: '인간학1 이수 여부', matchPatterns: ['인간학1', '인간학 1'], credit: 2 },
-    { id: 2, key: 'christianThought', label: '그리스도교사상과문화 이수 여부', matchPatterns: ['그리스도교사상과문화', '영성'], credit: 2 },
-    { id: 3, key: 'humanities2', label: '인간학2 이수 여부', matchPatterns: ['인간학2', '인간학 2'], credit: 2 },
-    { id: 4, key: 'keystoneDesign', label: '키스톤디자인 이수 여부', matchPatterns: ['키스톤디자인', '키스톤 디자인'], credit: 3 },
-    { id: 5, key: 'loveSharing', label: '사랑나누기 이수 여부', matchPatterns: ['사랑나누기', '베나생'], credit: 2 },
-    { id: 6, key: 'iDesign', label: 'I-DESIGN 이수 여부', matchPatterns: ['I-DESIGN', 'I-Design'], admissionYearFrom: 2024 },
+    { id: 2, key: 'humanities2', label: '인간학2 이수 여부', matchPatterns: ['인간학2', '인간학 2'], credit: 2 },
     {
-      id: 7,
+      id: 3,
+      key: 'keystoneDesignHumanities',
+      label: '키스톤디자인(인문창의) 이수 여부',
+      matchPatterns: ['키스톤디자인·인문창의', '키스톤디자인·탐구소통'],
+    },
+    { id: 4, key: 'keystoneDesignCreative', label: '키스톤디자인(창의설계) 이수 여부', matchPatterns: ['키스톤디자인·창의설계'] },
+    { id: 5, key: 'christianThought', label: '그리스도교사상과문화 이수 여부', matchPatterns: ['그리스도교사상과문화', '영성'], credit: 2 },
+    { id: 6, key: 'loveSharing', label: '사랑나누기 이수 여부', matchPatterns: ['사랑나누기', '베나생'], credit: 2 },
+    { id: 7, key: 'iDesign', label: 'I-DESIGN 이수 여부', matchPatterns: ['I-DESIGN', 'I-Design'], admissionYearFrom: 2024 },
+    {
+      id: 8,
       key: 'careerDesign',
       label: 'Career-DESIGN 이수 여부',
       matchPatterns: ['Career-DESIGN', 'Career DESIGN', 'Career-Design'],

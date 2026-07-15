@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import type { CreditBreakdownItem } from '../../lib/api/graduation';
 import { Card } from '../ui/Card';
 
@@ -39,12 +42,17 @@ function SuggestedCoursesBlock({ items }: { items: NonNullable<CreditBreakdownIt
 }
 
 export function CreditBreakdownList({ items }: { items: CreditBreakdownItem[] }) {
+  const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
 
   return (
     <Card className="mb-4">
-      <div className="mb-3 text-[15px] font-bold">학점 구성</div>
-      <div className="flex flex-col gap-2">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between">
+        <span className="text-[15px] font-bold">학점 구성</span>
+        <span className="text-xs font-bold text-brand-blue">{open ? '접기 ▲' : '펼치기 ▼'}</span>
+      </button>
+      {open && (
+      <div className="mt-3 flex flex-col gap-2">
         {items.map((item) => (
           <div key={item.key} className="rounded-xl bg-brand-bg px-3.5 py-3">
             <div className="flex items-center justify-between">
@@ -64,6 +72,7 @@ export function CreditBreakdownList({ items }: { items: CreditBreakdownItem[] })
           </div>
         ))}
       </div>
+      )}
     </Card>
   );
 }
