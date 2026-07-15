@@ -2,18 +2,55 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import type { CatalogGraduationRequirement, Profile } from '@prisma/client';
 import { groupDuplicateCourses } from '../common/retake-grouping.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { CATEGORY_KEY_LABEL, CATEGORY_KEY_MAP } from './category-key-map';
+import { CATEGORY_KEY_LABEL, resolveCategories } from './category-key-map';
 
 interface ResolvedCourse {
+  name: string;
   category: string | null;
   credit: number;
   offeringDepartmentName: string | null;
   needsSubstitution: boolean;
 }
 
-type CreditBreakdownItem =
-  | { key: string; label: string; required: number; earned: number; status: 'pass' | 'fail' }
+export interface SuggestedCourses {
+  first: string[];
+  second: string[];
+  unknown: string[];
+}
+
+export type CreditBreakdownItem =
+  | { key: string; label: string; required: number; earned: number; status: 'pass' }
+  | {
+      key: string;
+      label: string;
+      required: number;
+      earned: number;
+      status: 'fail';
+      suggestedCourses?: SuggestedCourses | null;
+    }
   | { key: string; label: string; required: number; earned: null; status: 'unavailable'; note: string };
+
+type MajorSlot = 'FIRST' | 'SECOND';
+
+export interface MajorResult {
+  totalCreditMin: number | null;
+  creditBreakdown: CreditBreakdownItem[];
+  comprehensiveExam: unknown;
+  substitutionRules: unknown;
+  languageScoreStandard: unknown;
+  thesisOptional: boolean;
+}
+
+// 복수전공자인데 그 학과의 졸업요건 데이터가 아직 시딩 안 된 경우(43개 학과가 전체를 못 채움)의
+// 기본값 — 계산 자체를 막지 않고 "아직 준비 안 됨" 상태로 내려준다.
+const EMPTY_REQUIREMENT_VIEW = {
+  totalCreditMin: null,
+  creditBreakdownRequired: {},
+  comprehensiveExam: null,
+  substitutionRules: [],
+  languageScoreStandard: null,
+  thesisOptional: false,
+};
 
 @Injectable()
 export class GraduationService {
@@ -21,17 +58,17 @@ export class GraduationService {
 
   async getRequirements(profile: Profile) {
     const requirement = await this.findRequirement(profile);
-    const catholicChecks = await this.prisma.catalogCatholicCheck.findMany({
-      where: { universityId: profile.universityId },
-    });
+    const secondRequirement = await this.findSecondMajorRequirement(profile);
+    const catholicChecks = await this.listApplicableCatholicChecks(profile);
 
     return {
-      totalCreditMin: requirement.totalCreditMin,
-      creditBreakdownRequired: requirement.creditBreakdown ?? {},
-      comprehensiveExam: requirement.comprehensiveExam,
-      substitutionRules: requirement.substitutionRules,
-      languageScoreStandard: requirement.languageScoreStandard,
-      thesisOptional: requirement.thesisOptional,
+      ...this.toRequirementView(requirement),
+      secondMajor:
+        profile.programType === 'DOUBLE_MAJOR'
+          ? secondRequirement
+            ? this.toRequirementView(secondRequirement)
+            : EMPTY_REQUIREMENT_VIEW
+          : null,
       catholicChecks: catholicChecks.map((c) => ({ key: c.key, label: c.label })),
     };
   }
@@ -50,12 +87,21 @@ export class GraduationService {
     const completionPercent =
       totalCreditMin && totalCreditMin > 0 ? Math.min(Math.round((totalCredits / totalCreditMin) * 100), 100) : null;
 
-    const creditBreakdown = await this.calculateCreditBreakdown(profile, requirement, resolvedCourses);
+    const takenNames = new Set(resolvedCourses.map((c) => c.name));
+    const ownDeptNames = await this.getOwnDeptNames(profile);
+    const creditBreakdown = await this.buildCreditBreakdownWithSuggestions(
+      profile.majorDepartmentId,
+      'FIRST',
+      requirement,
+      resolvedCourses,
+      takenNames,
+      ownDeptNames,
+    );
+
+    const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames, ownDeptNames);
 
     const extra = await this.getOrCreateExtra(profile.id);
-    const catholicChecksCatalog = await this.prisma.catalogCatholicCheck.findMany({
-      where: { universityId: profile.universityId },
-    });
+    const catholicChecksCatalog = await this.listApplicableCatholicChecks(profile);
     const checkedMap = (extra.catholicChecks ?? {}) as Record<string, boolean>;
 
     const languageStandard = (requirement.languageScoreStandard ?? {}) as Record<string, number>;
@@ -72,17 +118,103 @@ export class GraduationService {
       creditBreakdown,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
+      secondMajor,
       languageScore: extra.languageScore,
       languageExamType: extra.languageExamType,
       languageScorePass,
       thesisPass: extra.thesisPass,
       thesisOptional: requirement.thesisOptional,
-      catholicChecks: catholicChecksCatalog.map((c) => ({
-        key: c.key,
-        label: c.label,
-        checked: checkedMap[c.key] ?? false,
-      })),
+      catholicChecks: catholicChecksCatalog.map((c) => {
+        const autoDetected =
+          c.matchPatterns.length > 0 &&
+          resolvedCourses.some((course) => c.matchPatterns.some((pattern) => course.name.includes(pattern)));
+        const manualOverride = checkedMap[c.key];
+        return {
+          key: c.key,
+          label: c.label,
+          checked: manualOverride !== undefined ? manualOverride : autoDetected,
+          autoDetected,
+        };
+      }),
     };
+  }
+
+  private toRequirementView(requirement: CatalogGraduationRequirement) {
+    return {
+      totalCreditMin: requirement.totalCreditMin,
+      creditBreakdownRequired: requirement.creditBreakdown ?? {},
+      comprehensiveExam: requirement.comprehensiveExam,
+      substitutionRules: requirement.substitutionRules,
+      languageScoreStandard: requirement.languageScoreStandard,
+      thesisOptional: requirement.thesisOptional,
+    };
+  }
+
+  // 복수전공(제2전공) 자체 졸업요건. secondMajorDepartmentId가 있어도 그 학과 요건 데이터가
+  // 아직 없을 수 있어(43개 학과 시딩이 전체를 못 채움) requirement가 null이면 계산을 막지 않고
+  // "데이터 없음" 상태(빈 creditBreakdown)로 내려준다.
+  private async buildSecondMajorResult(
+    profile: Profile,
+    resolvedCourses: ResolvedCourse[],
+    takenNames: Set<string>,
+    ownDeptNames: string[],
+  ): Promise<MajorResult | null> {
+    if (profile.programType !== 'DOUBLE_MAJOR' || !profile.secondMajorDepartmentId) return null;
+
+    const requirement = await this.findSecondMajorRequirement(profile);
+    if (!requirement) {
+      return {
+        totalCreditMin: null,
+        creditBreakdown: [],
+        comprehensiveExam: null,
+        substitutionRules: [],
+        languageScoreStandard: null,
+        thesisOptional: false,
+      };
+    }
+
+    const creditBreakdown = await this.buildCreditBreakdownWithSuggestions(
+      profile.secondMajorDepartmentId,
+      'SECOND',
+      requirement,
+      resolvedCourses,
+      takenNames,
+      ownDeptNames,
+    );
+
+    return {
+      totalCreditMin: requirement.totalCreditMin,
+      creditBreakdown,
+      comprehensiveExam: requirement.comprehensiveExam,
+      substitutionRules: requirement.substitutionRules,
+      languageScoreStandard: requirement.languageScoreStandard,
+      thesisOptional: requirement.thesisOptional,
+    };
+  }
+
+  private async getOwnDeptNames(profile: Profile): Promise<string[]> {
+    const [majorDept, secondMajorDept] = await Promise.all([
+      this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } }),
+      profile.secondMajorDepartmentId
+        ? this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
+        : Promise.resolve(null),
+    ]);
+    return [majorDept?.name, secondMajorDept?.name].filter((n): n is string => !!n);
+  }
+
+  private async buildCreditBreakdownWithSuggestions(
+    departmentId: number,
+    slot: MajorSlot,
+    requirement: CatalogGraduationRequirement,
+    courses: ResolvedCourse[],
+    takenNames: Set<string>,
+    ownDeptNames: string[],
+  ): Promise<CreditBreakdownItem[]> {
+    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, ownDeptNames);
+    const suggestions = await this.suggestCourses(departmentId, slot, creditBreakdown, takenNames);
+    return creditBreakdown.map((item) =>
+      item.status === 'fail' ? { ...item, suggestedCourses: suggestions[item.key] ?? null } : item,
+    );
   }
 
   async updateCheck(profile: Profile, checkKey: string, checked: unknown) {
@@ -131,19 +263,57 @@ export class GraduationService {
   }
 
   private async findRequirement(profile: Profile): Promise<CatalogGraduationRequirement> {
-    const requirement = await this.prisma.catalogGraduationRequirement.findFirst({
-      where: {
-        departmentId: profile.majorDepartmentId,
-        AND: [
-          { OR: [{ admissionYearFrom: null }, { admissionYearFrom: { lte: profile.admissionYear } }] },
-          { OR: [{ admissionYearTo: null }, { admissionYearTo: { gte: profile.admissionYear } }] },
-        ],
-      },
-    });
+    const perspective = profile.programType === 'DOUBLE_MAJOR' ? 'DOUBLE_MAJOR' : 'FIRST_MAJOR';
+    const requirement = await this.findRequirementForDept(
+      profile.majorDepartmentId,
+      profile.majorTrackId,
+      profile.admissionYear,
+      perspective,
+    );
     if (!requirement) {
       throw new NotFoundException('아직 해당 학과의 요람 데이터가 준비되지 않았습니다.');
     }
     return requirement;
+  }
+
+  // 제2전공(복수전공) 관점의 요건 — 그 학과에서 이 학생은 언제나 "복수전공자"이므로 scope는
+  // DOUBLE_MAJOR로 고정한다(findRequirement의 perspective와 다른 개념 — 저 쪽은 학생 본인의
+  // programType 기준, 이 쪽은 상대 학과 입장에서 본 이 학생의 역할 기준).
+  private async findSecondMajorRequirement(profile: Profile): Promise<CatalogGraduationRequirement | null> {
+    if (profile.programType !== 'DOUBLE_MAJOR' || !profile.secondMajorDepartmentId) return null;
+    return this.findRequirementForDept(
+      profile.secondMajorDepartmentId,
+      profile.secondMajorTrackId,
+      profile.admissionYear,
+      'DOUBLE_MAJOR',
+    );
+  }
+
+  // scope(ALL/FIRST_MAJOR/DOUBLE_MAJOR)와 track을 모두 고려한 공용 조회. 학과가 트랙별로 요건이
+  // 갈리면(트랙별 행만 존재) 학생의 트랙과 일치하는 행만, 트랙 구분이 없는 학과(트랙 없는 행만
+  // 존재)면 그대로 매치된다 — 두 종류가 한 학과에 섞이지 않는다는 시딩 전제(schema.prisma 주석)를 따른다.
+  private findRequirementForDept(
+    departmentId: number,
+    trackId: number | null,
+    admissionYear: number,
+    perspective: 'FIRST_MAJOR' | 'DOUBLE_MAJOR',
+  ): Promise<CatalogGraduationRequirement | null> {
+    return this.prisma.catalogGraduationRequirement.findFirst({
+      where: {
+        departmentId,
+        AND: [
+          { OR: [{ admissionYearFrom: null }, { admissionYearFrom: { lte: admissionYear } }] },
+          { OR: [{ admissionYearTo: null }, { admissionYearTo: { gte: admissionYear } }] },
+          { OR: [{ scope: 'ALL' }, { scope: perspective }] },
+          { OR: trackId !== null ? [{ trackId: null }, { trackId }] : [{ trackId: null }] },
+        ],
+      },
+    });
+  }
+
+  private async listApplicableCatholicChecks(profile: Profile) {
+    const all = await this.prisma.catalogCatholicCheck.findMany({ where: { universityId: profile.universityId } });
+    return all.filter((c) => c.admissionYearFrom === null || c.admissionYearFrom <= profile.admissionYear);
   }
 
   // 재수강(retakeGroups) + 대체인정(substitution) 반영 완료 상태의 과목 목록을 반환한다.
@@ -172,31 +342,27 @@ export class GraduationService {
     return courses
       .filter((c) => !excludedIds.has(c.id))
       .map((c) => ({
+        name: c.name,
         category: c.substitution ? c.substitution.category : c.category,
         credit: c.substitution ? c.substitution.credit : c.credit,
         offeringDepartmentName: c.offeringDepartmentName,
-        needsSubstitution: !c.code && !c.substitution,
+        // 요람 코드도 대체인정도 없지만 사용자가 이수구분을 직접 지정한 과목(공유대학 등 요람에
+        // 아예 없는 과목)은 그 지정을 신뢰하고 계산을 막지 않는다.
+        needsSubstitution: !c.code && !c.substitution && !c.category,
       }));
   }
 
-  private async calculateCreditBreakdown(
-    profile: Profile,
+  private calculateCreditBreakdown(
     requirement: CatalogGraduationRequirement,
     courses: ResolvedCourse[],
-  ): Promise<CreditBreakdownItem[]> {
+    slot: MajorSlot,
+    ownDeptNames: string[],
+  ): CreditBreakdownItem[] {
     const breakdown = (requirement.creditBreakdown ?? {}) as Record<string, number>;
     if (Object.keys(breakdown).length === 0) return [];
 
-    const [majorDept, secondMajorDept] = await Promise.all([
-      this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } }),
-      profile.secondMajorDepartmentId
-        ? this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
-        : Promise.resolve(null),
-    ]);
-    const ownDeptNames = [majorDept?.name, secondMajorDept?.name].filter((n): n is string => !!n);
-
     return Object.entries(breakdown).map(([key, required]) => {
-      const categories = CATEGORY_KEY_MAP[key];
+      const categories = resolveCategories(key, slot);
       if (!categories) {
         return {
           key,
@@ -232,6 +398,68 @@ export class GraduationService {
         status: earned >= required ? ('pass' as const) : ('fail' as const),
       };
     });
+  }
+
+  // 부족한 카테고리별로 아직 안 들은 요람 과목을 찾고, 최근 2개년 개설이력(CourseOffering)에서
+  // 1학기/2학기 어느 쪽에 열렸는지 조회해 버킷팅한다. 개설이력 자체가 없는 과목은 "미확인"으로 남긴다.
+  // 어디까지나 추천이라 카테고리당 최대 5개까지만 노출한다 — 프론트에 항상 "실제로 안 열릴 수
+  // 있다" 안내문을 같이 보여주는 게 전제.
+  private async suggestCourses(
+    departmentId: number,
+    slot: MajorSlot,
+    creditBreakdown: CreditBreakdownItem[],
+    takenNames: Set<string>,
+  ): Promise<Record<string, SuggestedCourses>> {
+    const failing = creditBreakdown.filter((item) => item.status === 'fail');
+    if (failing.length === 0) return {};
+
+    const department = await this.prisma.department.findUnique({ where: { id: departmentId } });
+    if (!department) return {};
+
+    const currentYear = new Date().getFullYear();
+    const suggestions: Record<string, SuggestedCourses> = {};
+
+    for (const item of failing) {
+      const categories = resolveCategories(item.key, slot);
+      if (!categories) continue;
+
+      const candidates = await this.prisma.catalogCourse.findMany({
+        where: { departmentId, category: { in: categories } },
+        select: { name: true },
+        take: 40,
+      });
+      const names = candidates.map((c) => c.name).filter((name) => !takenNames.has(name));
+      if (names.length === 0) continue;
+
+      const offerings = await this.prisma.courseOffering.findMany({
+        where: { departmentName: department.name, name: { in: names }, year: { gte: currentYear - 2 } },
+        select: { name: true, term: true },
+      });
+      const termsByName = new Map<string, Set<string>>();
+      for (const o of offerings) {
+        if (!termsByName.has(o.name)) termsByName.set(o.name, new Set());
+        termsByName.get(o.name)!.add(o.term);
+      }
+
+      const first: string[] = [];
+      const second: string[] = [];
+      const unknown: string[] = [];
+      for (const name of names) {
+        const terms = termsByName.get(name);
+        if (!terms || terms.size === 0) {
+          if (unknown.length < 5) unknown.push(name);
+          continue;
+        }
+        if (terms.has('1학기') && first.length < 5) first.push(name);
+        if (terms.has('2학기') && second.length < 5) second.push(name);
+      }
+
+      if (first.length || second.length || unknown.length) {
+        suggestions[item.key] = { first, second, unknown };
+      }
+    }
+
+    return suggestions;
   }
 
   private async getOrCreateExtra(profileId: number) {

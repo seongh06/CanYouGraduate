@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useState } from 'react';
 import { ApiError } from '../../../lib/api/client';
 import {
   calculateGraduation,
@@ -18,9 +19,12 @@ import { RequirementInfoPanel } from '../../../components/graduation/Requirement
 import { SummaryGauge } from '../../../components/graduation/SummaryGauge';
 import { Card } from '../../../components/ui/Card';
 
+type MajorTab = 'FIRST' | 'SECOND';
+
 export default function ResultPage() {
   const { sessionId } = useSession();
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<MajorTab>('FIRST');
 
   const query = useQuery({
     queryKey: ['graduation', 'calculate', sessionId],
@@ -87,6 +91,8 @@ export default function ResultPage() {
   }
 
   const data = query.data!;
+  const hasSecondMajor = !!data.secondMajor;
+  const activeMajor = tab === 'SECOND' && data.secondMajor ? data.secondMajor : null;
 
   return (
     <div className="pb-10">
@@ -96,8 +102,51 @@ export default function ResultPage() {
         remainingCredits={data.remainingCredits}
         completionPercent={data.completionPercent}
       />
-      <CreditBreakdownList items={data.creditBreakdown} />
-      <RequirementInfoPanel comprehensiveExam={data.comprehensiveExam} substitutionRules={data.substitutionRules} />
+
+      {hasSecondMajor && (
+        <div className="mb-3.5 flex gap-1.5 rounded-xl bg-brand-bg p-1">
+          {(
+            [
+              ['FIRST', '제1전공'],
+              ['SECOND', '제2전공'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex-1 rounded-lg py-2 text-[13px] font-bold transition-colors ${
+                tab === key ? 'bg-white text-brand-blue shadow-sm' : 'text-brand-text-muted'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeMajor ? (
+        activeMajor.creditBreakdown.length === 0 && activeMajor.totalCreditMin === null ? (
+          <Card className="mb-4">
+            <div className="text-[13px] text-brand-text-muted">
+              이 학과는 복수전공 졸업요건 데이터가 아직 준비되지 않았어요.
+            </div>
+          </Card>
+        ) : (
+          <>
+            <CreditBreakdownList items={activeMajor.creditBreakdown} />
+            <RequirementInfoPanel
+              comprehensiveExam={activeMajor.comprehensiveExam}
+              substitutionRules={activeMajor.substitutionRules}
+            />
+          </>
+        )
+      ) : (
+        <>
+          <CreditBreakdownList items={data.creditBreakdown} />
+          <RequirementInfoPanel comprehensiveExam={data.comprehensiveExam} substitutionRules={data.substitutionRules} />
+        </>
+      )}
+
       <LanguageAndThesisCard
         languageScoreStandard={requirementsQuery.data?.languageScoreStandard ?? null}
         languageScore={data.languageScore}

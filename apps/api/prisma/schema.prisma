@@ -304,11 +304,21 @@ enum ScoringMethod {
 }
 
 model CatalogCatholicCheck {
-  id           Int        @id @default(autoincrement())
-  universityId Int        @map("university_id")
+  id           Int    @id @default(autoincrement())
+  universityId Int    @map("university_id")
   key          String
   label        String
-  university   University @relation(fields: [universityId], references: [id])
+  // Course.name에 이 중 하나라도 포함되면 자동 이수로 판정한다(신/구 과목명 별칭 포함, 예:
+  // 그리스도교사상과문화 ↔ 영성). 자동감지는 제안일 뿐이고 GraduationExtra.catholicChecks에
+  // 사용자가 명시적으로 남긴 값이 항상 우선한다.
+  matchPatterns String[] @default([]) @map("match_patterns")
+  credit        Int?
+  // null=전체 학번 적용. I-DESIGN/Career-DESIGN처럼 특정 학번부터 신설된 항목에만 사용.
+  admissionYearFrom Int?                  @map("admission_year_from")
+  dataSource        RequirementDataSource @default(PAGE_DIRECT) @map("data_source")
+  verified          Boolean               @default(true)
+  sourceUrl         String?               @map("source_url")
+  university        University            @relation(fields: [universityId], references: [id])
 
   @@index([universityId])
   @@map("catalog_catholic_checks")

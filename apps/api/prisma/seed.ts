@@ -367,16 +367,56 @@ async function main() {
     });
   }
 
-  await prisma.catalogCatholicCheck.upsert({
-    where: { id: 1 },
-    update: {},
-    create: { id: 1, universityId: university.id, key: 'humanities', label: '인간학 이수 여부' },
-  });
-  await prisma.catalogCatholicCheck.upsert({
-    where: { id: 2 },
-    update: {},
-    create: { id: 2, universityId: university.id, key: 'catholicSpirit', label: '가톨릭 정신 관련 지정 과목 이수 여부' },
-  });
+  // 공통 졸업조건(구 "가톨릭대 특화 졸업 조건") — 성심교정 기초교양필수 5종 + 2024학번부터 신설된
+  // I-DESIGN/Career-DESIGN. WebSearch로 조사(catholic.ac.kr 직접 확인 못한 항목 있음, verified:false),
+  // 정확한 학번 컷오프가 불명확한 항목(그리스도교사상과문화/사랑나누기)은 구 명칭까지 matchPatterns에
+  // 포함해서 연도 경계 없이 이름만으로 판정한다. "셀프메이킹잡(Self-Making Job Portfolio)"은 진로
+  // 자기설계 과목으로 확인되나 전원 필수 졸업조건인지 확정 못해 이번 시드에는 포함하지 않는다.
+  // matchPatterns/label이 이후 조사로 바뀔 수 있어 update도 create와 동일하게 채워 재시드 시 갱신되게 한다.
+  interface CatholicCheckSeed {
+    id: number;
+    key: string;
+    label: string;
+    matchPatterns: string[];
+    credit?: number;
+    admissionYearFrom?: number;
+    sourceUrl?: string;
+  }
+
+  const CATHOLIC_CHECKS: CatholicCheckSeed[] = [
+    { id: 1, key: 'humanities1', label: '인간학1 이수 여부', matchPatterns: ['인간학1', '인간학 1'], credit: 2 },
+    { id: 2, key: 'christianThought', label: '그리스도교사상과문화 이수 여부', matchPatterns: ['그리스도교사상과문화', '영성'], credit: 2 },
+    { id: 3, key: 'humanities2', label: '인간학2 이수 여부', matchPatterns: ['인간학2', '인간학 2'], credit: 2 },
+    { id: 4, key: 'keystoneDesign', label: '키스톤디자인 이수 여부', matchPatterns: ['키스톤디자인', '키스톤 디자인'], credit: 3 },
+    { id: 5, key: 'loveSharing', label: '사랑나누기 이수 여부', matchPatterns: ['사랑나누기', '베나생'], credit: 2 },
+    { id: 6, key: 'iDesign', label: 'I-DESIGN 이수 여부', matchPatterns: ['I-DESIGN', 'I-Design'], admissionYearFrom: 2024 },
+    {
+      id: 7,
+      key: 'careerDesign',
+      label: 'Career-DESIGN 이수 여부',
+      matchPatterns: ['Career-DESIGN', 'Career DESIGN', 'Career-Design'],
+      admissionYearFrom: 2024,
+    },
+  ];
+
+  for (const c of CATHOLIC_CHECKS) {
+    const fields = {
+      universityId: university.id,
+      key: c.key,
+      label: c.label,
+      matchPatterns: c.matchPatterns,
+      credit: c.credit ?? null,
+      admissionYearFrom: c.admissionYearFrom ?? null,
+      dataSource: 'SEARCH_SNIPPET' as const,
+      verified: false,
+      sourceUrl: c.sourceUrl ?? null,
+    };
+    await prisma.catalogCatholicCheck.upsert({
+      where: { id: c.id },
+      update: fields,
+      create: { id: c.id, ...fields },
+    });
+  }
 
   // 졸업요건: 가톨릭대_학과별_졸업요건_스키마_v3.xlsx "졸업요건" 시트(43개 학과 전수조사) 그대로 반영.
   // 자유전공학부/융합전공학부/교직과(패턴 ⑱, isAdministrativeUnit=true)는 시딩 대상이 아니고,
