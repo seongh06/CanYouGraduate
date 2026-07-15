@@ -56,8 +56,8 @@ const EMPTY_REQUIREMENT_VIEW = {
 export class GraduationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getRequirements(profile: Profile) {
-    const requirement = await this.findRequirement(profile);
+  async getRequirements(profile: Profile, trackOverride?: number) {
+    const requirement = await this.findRequirement(profile, trackOverride);
     const secondRequirement = await this.findSecondMajorRequirement(profile);
     const catholicChecks = await this.listApplicableCatholicChecks(profile);
 
@@ -73,8 +73,8 @@ export class GraduationService {
     };
   }
 
-  async calculate(profile: Profile) {
-    const requirement = await this.findRequirement(profile);
+  async calculate(profile: Profile, trackOverride?: number) {
+    const requirement = await this.findRequirement(profile, trackOverride);
     const resolvedCourses = await this.resolveCourses(profile);
 
     if (resolvedCourses.some((c) => c.needsSubstitution)) {
@@ -273,10 +273,12 @@ export class GraduationService {
   // programType이 DOUBLE_MAJOR면 제1전공 조회에도 DOUBLE_MAJOR scope를 썼는데, 그러면 생명공학과처럼
   // FIRST_MAJOR/DOUBLE_MAJOR 두 행이 있는 학과가 본인 제1전공일 때도(예: 취업상담 등 1전공자 전용
   // 필수요건이 있는 학과) 잘못 완화된 DOUBLE_MAJOR 행을 골라버리는 버그였다.
-  private async findRequirement(profile: Profile): Promise<CatalogGraduationRequirement> {
+  // trackOverride: 결과화면 트랙 미리보기용 — 주어지면 프로필에 저장된 majorTrackId 대신 이
+  // 값으로 조회한다(프로필엔 반영 안 됨, 순수 조회 시점 override).
+  private async findRequirement(profile: Profile, trackOverride?: number): Promise<CatalogGraduationRequirement> {
     const requirement = await this.findRequirementForDept(
       profile.majorDepartmentId,
-      profile.majorTrackId,
+      trackOverride ?? profile.majorTrackId,
       profile.admissionYear,
       'FIRST_MAJOR',
     );

@@ -1910,37 +1910,43 @@ async function main() {
     },
   ];
 
+  // update를 {}로 두면(과거 컨벤션) id가 이미 존재할 때 seed.ts 내용이 바뀌어도 절대 반영이
+  // 안 된다 — FEAT#34에서 43개 학과로 확장하며 id 2/3을 경영학과/수학과(초기 수동 시드, FEAT#3~7)에서
+  // 미디어기술콘텐츠학과 트랙 행으로 재사용했는데, 이 컨벤션 때문에 실제 프로덕션 DB엔 새 mtc
+  // 데이터가 한 번도 안 들어가고 옛 경영학과/수학과 데이터가 그대로 남아있었다(이슈 #47 — 트랙을
+  // 명시한 프로필만 골라 404가 나는 형태로 발견됨). update도 create와 동일하게 채워 재시드할 때마다
+  // seed.ts 내용으로 실제 동기화되도록 한다.
   for (const r of GRADUATION_REQUIREMENTS) {
+    const fields = {
+      departmentId: r.departmentId,
+      trackId: r.trackId ?? null,
+      scope: r.scope ?? 'ALL',
+      cohortLabel: r.cohortLabel,
+      admissionYearFrom: r.admissionYearFrom ?? null,
+      admissionYearTo: r.admissionYearTo ?? null,
+      basis: r.basis ?? 'ADMISSION_YEAR',
+      graduationDateFrom: r.graduationDateFrom ?? null,
+      totalCreditMin: r.totalCreditMin ?? null,
+      creditBreakdown: r.creditBreakdown ?? Prisma.JsonNull,
+      scoringMethod: r.scoringMethod ?? 'PASS_FAIL',
+      comprehensiveExam: r.comprehensiveExam ?? Prisma.JsonNull,
+      scoreItems: r.scoreItems ?? Prisma.JsonNull,
+      pointThreshold: r.pointThreshold ?? null,
+      mandatoryRequirements: r.mandatoryRequirements ?? Prisma.JsonNull,
+      substitutionRules: r.substitutionRules ?? [],
+      languageScoreStandard: r.languageScoreStandard ?? Prisma.JsonNull,
+      thesisOptional: r.thesisOptional ?? false,
+      trackRestrictionNote: r.trackRestrictionNote ?? null,
+      dataSource: r.dataSource ?? ('PAGE_DIRECT' as const),
+      verified: r.verified ?? true,
+      sourceUrl: r.sourceUrl ?? null,
+      attachmentUrl: r.attachmentUrl ?? null,
+      notes: r.notes ?? null,
+    };
     await prisma.catalogGraduationRequirement.upsert({
       where: { id: r.id },
-      update: {},
-      create: {
-        id: r.id,
-        departmentId: r.departmentId,
-        trackId: r.trackId ?? null,
-        scope: r.scope ?? 'ALL',
-        cohortLabel: r.cohortLabel,
-        admissionYearFrom: r.admissionYearFrom ?? null,
-        admissionYearTo: r.admissionYearTo ?? null,
-        basis: r.basis ?? 'ADMISSION_YEAR',
-        graduationDateFrom: r.graduationDateFrom ?? null,
-        totalCreditMin: r.totalCreditMin ?? null,
-        creditBreakdown: r.creditBreakdown ?? Prisma.JsonNull,
-        scoringMethod: r.scoringMethod ?? 'PASS_FAIL',
-        comprehensiveExam: r.comprehensiveExam ?? Prisma.JsonNull,
-        scoreItems: r.scoreItems ?? Prisma.JsonNull,
-        pointThreshold: r.pointThreshold ?? null,
-        mandatoryRequirements: r.mandatoryRequirements ?? Prisma.JsonNull,
-        substitutionRules: r.substitutionRules ?? [],
-        languageScoreStandard: r.languageScoreStandard ?? Prisma.JsonNull,
-        thesisOptional: r.thesisOptional ?? false,
-        trackRestrictionNote: r.trackRestrictionNote ?? null,
-        dataSource: r.dataSource ?? 'PAGE_DIRECT',
-        verified: r.verified ?? true,
-        sourceUrl: r.sourceUrl ?? null,
-        attachmentUrl: r.attachmentUrl ?? null,
-        notes: r.notes ?? null,
-      },
+      update: fields,
+      create: { id: r.id, ...fields },
     });
   }
 
