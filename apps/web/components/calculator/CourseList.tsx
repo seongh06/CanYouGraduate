@@ -7,6 +7,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   제1전공선택: '#5CA1FF',
   제2전공필수: '#7C3AED',
   제2전공선택: '#A78BFA',
+  타전공선택: '#94A3B8',
   전공기초: '#FF8B48',
   기초교양필수: '#12B76A',
   중핵교양필수: '#0EA5A5',
@@ -34,6 +35,7 @@ export function CourseList({ semesterLabel, courses }: CourseListProps) {
             <div className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold">{c.name}</div>
             <div className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-brand-text-muted">
               {c.code} · {c.category}
+              {c.offeringDepartmentName && ` · ${c.offeringDepartmentName}`}
             </div>
           </div>
           {c.foreignLanguageType && (
