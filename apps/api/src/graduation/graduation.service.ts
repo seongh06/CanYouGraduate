@@ -95,10 +95,10 @@ export class GraduationService {
       requirement,
       resolvedCourses,
       takenNames,
-      ownDeptNames,
+      ownDeptNames.first,
     );
 
-    const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames, ownDeptNames);
+    const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames, ownDeptNames.second);
 
     const extra = await this.getOrCreateExtra(profile.id);
     const catholicChecksCatalog = await this.listApplicableCatholicChecks(profile);
@@ -192,14 +192,20 @@ export class GraduationService {
     };
   }
 
-  private async getOwnDeptNames(profile: Profile): Promise<string[]> {
+  // 슬롯별로 분리해서 반환한다 — 중핵교양필수 재분류(calculateCreditBreakdown)를 제1/2전공
+  // 각각의 breakdown에 적용할 때, 상대 학과가 개설한 과목까지 "본인 전공"으로 잘못 세지 않기 위함
+  // (CodeRabbit 리뷰 지적 — 이전엔 두 학과 이름을 합쳐서 양쪽 계산에 그대로 재사용했음).
+  private async getOwnDeptNames(profile: Profile): Promise<{ first: string[]; second: string[] }> {
     const [majorDept, secondMajorDept] = await Promise.all([
       this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } }),
       profile.secondMajorDepartmentId
         ? this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
         : Promise.resolve(null),
     ]);
-    return [majorDept?.name, secondMajorDept?.name].filter((n): n is string => !!n);
+    return {
+      first: majorDept ? [majorDept.name] : [],
+      second: secondMajorDept ? [secondMajorDept.name] : [],
+    };
   }
 
   private async buildCreditBreakdownWithSuggestions(
@@ -262,13 +268,17 @@ export class GraduationService {
     await this.prisma.graduationExtra.update({ where: { profileId: profile.id }, data: { thesisPass: pass } });
   }
 
+  // majorDepartmentId는 정의상 이 학생의 "제1전공"이므로 scope는 항상 FIRST_MAJOR 관점으로 조회한다.
+  // profile.programType(복수전공 보유 여부)과는 별개 축 — CodeRabbit 리뷰로 발견: 원래 코드는
+  // programType이 DOUBLE_MAJOR면 제1전공 조회에도 DOUBLE_MAJOR scope를 썼는데, 그러면 생명공학과처럼
+  // FIRST_MAJOR/DOUBLE_MAJOR 두 행이 있는 학과가 본인 제1전공일 때도(예: 취업상담 등 1전공자 전용
+  // 필수요건이 있는 학과) 잘못 완화된 DOUBLE_MAJOR 행을 골라버리는 버그였다.
   private async findRequirement(profile: Profile): Promise<CatalogGraduationRequirement> {
-    const perspective = profile.programType === 'DOUBLE_MAJOR' ? 'DOUBLE_MAJOR' : 'FIRST_MAJOR';
     const requirement = await this.findRequirementForDept(
       profile.majorDepartmentId,
       profile.majorTrackId,
       profile.admissionYear,
-      perspective,
+      'FIRST_MAJOR',
     );
     if (!requirement) {
       throw new NotFoundException('아직 해당 학과의 요람 데이터가 준비되지 않았습니다.');

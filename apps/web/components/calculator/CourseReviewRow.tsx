@@ -24,7 +24,11 @@ interface CourseReviewRowProps {
 export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }: CourseReviewRowProps) {
   const [open, setOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [manualCategory, setManualCategory] = useState(MANUAL_CATEGORY_OPTIONS[0]);
+  const [manualCategory, setManualCategory] = useState(
+    course.category && (MANUAL_CATEGORY_OPTIONS as string[]).includes(course.category)
+      ? course.category
+      : MANUAL_CATEGORY_OPTIONS[0],
+  );
   const [manualCredit, setManualCredit] = useState(String(course.credit || 3));
 
   return (
@@ -85,6 +89,8 @@ export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }:
               </select>
               <input
                 type="number"
+                min="0"
+                step="1"
                 value={manualCredit}
                 onChange={(e) => setManualCredit(e.target.value)}
                 placeholder="학점"
