@@ -48,7 +48,12 @@ function formatValue(value: unknown): string {
 }
 
 export function RequirementInfoPanel({ comprehensiveExam, substitutionRules }: RequirementInfoPanelProps) {
-  if (!comprehensiveExam && substitutionRules.length === 0) return null;
+  // hasExam이 'N'이면 졸업종합시험 자체가 폐지된 상태라, 언제 왜 폐지됐는지 같은 이력성 detail은
+  // 학생 입장에서 의미가 없다 — 그 경우는 comprehensiveExam 블록 자체를 숨긴다.
+  const hasExam = comprehensiveExam?.hasExam;
+  const showComprehensiveExam = !!comprehensiveExam && hasExam !== 'N';
+
+  if (!showComprehensiveExam && substitutionRules.length === 0) return null;
 
   return (
     <Card className="mb-4">
@@ -57,9 +62,9 @@ export function RequirementInfoPanel({ comprehensiveExam, substitutionRules }: R
         학과마다 규정이 달라 자동으로 판정하지 않아요 — 아래 내용을 직접 확인해주세요.
       </div>
 
-      {comprehensiveExam && (
+      {showComprehensiveExam && (
         <div className="mb-3 flex flex-col gap-2 rounded-xl bg-brand-bg px-3.5 py-3">
-          {Object.entries(comprehensiveExam).map(([key, value]) => (
+          {Object.entries(comprehensiveExam!).map(([key, value]) => (
             <div key={key} className="text-[13px]">
               <div className="font-bold">{FIELD_LABEL[key] ?? key}</div>
               <div className="mt-0.5 text-brand-text-muted">{formatValue(value)}</div>
@@ -70,6 +75,7 @@ export function RequirementInfoPanel({ comprehensiveExam, substitutionRules }: R
 
       {substitutionRules.length > 0 && (
         <div className="flex flex-col gap-2">
+          <div className="text-xs font-bold text-brand-text-muted">다음 중 하나만 충족하면 돼요</div>
           {substitutionRules.map((rule, i) => (
             <div key={i} className="rounded-xl border border-brand-border px-3.5 py-3 text-[13px]">
               <span
@@ -80,7 +86,9 @@ export function RequirementInfoPanel({ comprehensiveExam, substitutionRules }: R
                 {RULE_TYPE_LABEL[rule.type] ?? rule.type}
               </span>
               {rule.condition}
-              {rule.waives !== null && <span className="text-brand-text-muted"> — {rule.waives}과목 면제</span>}
+              {typeof rule.waives === 'number' && (
+                <span className="text-brand-text-muted"> — {rule.waives}과목 면제</span>
+              )}
               {rule.note && <div className="mt-1 text-xs text-brand-text-muted">{rule.note}</div>}
             </div>
           ))}

@@ -10,6 +10,9 @@ interface LanguageAndThesisCardProps {
   languageScorePass: boolean | null;
   thesisPass: boolean;
   thesisOptional: boolean;
+  // 졸업시험이 폐지·미실시(hasExam:'N')이고 논문도 선택이면 자기신고할 게 아무것도 없어서
+  // 이 카드의 졸업논문/시험 섹션 자체가 무의미하다 — 그 경우만 false로 넘겨서 숨긴다.
+  showThesisSection: boolean;
   onSubmitLanguageScore: (examType: string, score: number) => void;
   onToggleThesis: (pass: boolean) => void;
 }
@@ -21,12 +24,15 @@ export function LanguageAndThesisCard({
   languageScorePass,
   thesisPass,
   thesisOptional,
+  showThesisSection,
   onSubmitLanguageScore,
   onToggleThesis,
 }: LanguageAndThesisCardProps) {
   const examTypes = languageScoreStandard ? Object.keys(languageScoreStandard) : [];
   const [examType, setExamType] = useState(languageExamType ?? examTypes[0] ?? '');
   const [score, setScore] = useState(languageScore !== null ? String(languageScore) : '');
+
+  if (examTypes.length === 0 && !showThesisSection) return null;
 
   return (
     <Card className="mb-4">
@@ -74,23 +80,25 @@ export function LanguageAndThesisCard({
         </div>
       )}
 
-      <div>
-        <div className="mb-1 text-[15px] font-bold">
-          졸업논문 / 졸업시험{thesisOptional ? ' (선택)' : ''}
+      {showThesisSection && (
+        <div>
+          <div className="mb-1 text-[15px] font-bold">
+            졸업논문 / 졸업시험{thesisOptional ? ' (선택)' : ''}
+          </div>
+          <div className="mb-2 text-xs text-brand-text-muted">
+            자동으로 판정할 수 없는 항목이에요 — 학과에서 통과 처리됐는지 직접 확인 후 체크해주세요.
+          </div>
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-brand-bg px-3.5 py-3">
+            <input
+              type="checkbox"
+              checked={thesisPass}
+              onChange={(e) => onToggleThesis(e.target.checked)}
+              className="h-4 w-4 accent-brand-blue"
+            />
+            <span className="text-[13px] font-semibold">직접 확인했고, 통과했어요</span>
+          </label>
         </div>
-        <div className="mb-2 text-xs text-brand-text-muted">
-          자동으로 판정할 수 없는 항목이에요 — 학과에서 통과 처리됐는지 직접 확인 후 체크해주세요.
-        </div>
-        <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-brand-bg px-3.5 py-3">
-          <input
-            type="checkbox"
-            checked={thesisPass}
-            onChange={(e) => onToggleThesis(e.target.checked)}
-            className="h-4 w-4 accent-brand-blue"
-          />
-          <span className="text-[13px] font-semibold">직접 확인했고, 통과했어요</span>
-        </label>
-      </div>
+      )}
     </Card>
   );
 }

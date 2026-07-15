@@ -96,6 +96,7 @@ export class GraduationService {
       resolvedCourses,
       takenNames,
       ownDeptNames.first,
+      profile.programType === 'DOUBLE_MAJOR',
     );
 
     const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames, ownDeptNames.second);
@@ -173,6 +174,8 @@ export class GraduationService {
       };
     }
 
+    // 여기 도달했다는 건 이미 profile.programType === 'DOUBLE_MAJOR'라는 뜻 — 이 학과는 언제나
+    // "복수전공 기준"(doubleMajorMin)으로 본다.
     const creditBreakdown = await this.buildCreditBreakdownWithSuggestions(
       profile.secondMajorDepartmentId,
       'SECOND',
@@ -180,6 +183,7 @@ export class GraduationService {
       resolvedCourses,
       takenNames,
       ownDeptNames,
+      true,
     );
 
     return {
@@ -215,8 +219,9 @@ export class GraduationService {
     courses: ResolvedCourse[],
     takenNames: Set<string>,
     ownDeptNames: string[],
+    preferDoubleMajorMin: boolean,
   ): Promise<CreditBreakdownItem[]> {
-    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, ownDeptNames);
+    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, ownDeptNames, preferDoubleMajorMin);
     const suggestions = await this.suggestCourses(departmentId, slot, creditBreakdown, takenNames);
     return creditBreakdown.map((item) =>
       item.status === 'fail' ? { ...item, suggestedCourses: suggestions[item.key] ?? null } : item,
@@ -327,7 +332,10 @@ export class GraduationService {
   }
 
   private async listApplicableCatholicChecks(profile: Profile) {
-    const all = await this.prisma.catalogCatholicCheck.findMany({ where: { universityId: profile.universityId } });
+    const all = await this.prisma.catalogCatholicCheck.findMany({
+      where: { universityId: profile.universityId },
+      orderBy: { id: 'asc' }, // 학년 순서(id 배정 순서)대로 노출
+    });
     return all.filter((c) => c.admissionYearFrom === null || c.admissionYearFrom <= profile.admissionYear);
   }
 
@@ -372,47 +380,56 @@ export class GraduationService {
     courses: ResolvedCourse[],
     slot: MajorSlot,
     ownDeptNames: string[],
+    preferDoubleMajorMin: boolean,
   ): CreditBreakdownItem[] {
     const breakdown = (requirement.creditBreakdown ?? {}) as Record<string, number>;
     if (Object.keys(breakdown).length === 0) return [];
 
-    return Object.entries(breakdown).map(([key, required]) => {
-      const categories = resolveCategories(key, slot);
-      if (!categories) {
+    return Object.entries(breakdown)
+      // majorDeepMin(전공심화 기준)과 doubleMajorMin(복수전공 기준)은 같은 과목을 세는 서로 다른
+      // 학점 문턱값이라 동시에 적용될 수 없다 — 이 학생 상황에 맞는 쪽 하나만 보여준다.
+      .filter(([key]) => {
+        if (key === 'majorDeepMin') return !preferDoubleMajorMin;
+        if (key === 'doubleMajorMin') return preferDoubleMajorMin;
+        return true;
+      })
+      .map(([key, required]) => {
+        const categories = resolveCategories(key, slot);
+        if (!categories) {
+          return {
+            key,
+            label: CATEGORY_KEY_LABEL[key] ?? key,
+            required,
+            earned: null,
+            status: 'unavailable' as const,
+            note: '과목별 소속 전공 구분 불가(요람/개설과목 데이터엔 학생 본인 기준 전공 소속이 없음)',
+          };
+        }
+
+        let earned = 0;
+        for (const c of courses) {
+          if (!c.category) continue;
+          // 중핵교양필수를 본인 전공(제1/2전공) 학과가 개설한 경우 전공학점으로 인정되는 경우가 있어
+          // (사용자 확인) major 쪽으로 재분류하고 generalCore에선 제외한다.
+          const isGeneralCoreOwnMajor =
+            c.category === '중핵교양필수' && !!c.offeringDepartmentName && ownDeptNames.includes(c.offeringDepartmentName);
+
+          if ((key === 'major' || key === 'majorDeepMin' || key === 'doubleMajorMin') && isGeneralCoreOwnMajor) {
+            earned += c.credit;
+            continue;
+          }
+          if (key === 'generalCore' && isGeneralCoreOwnMajor) continue;
+          if (categories.includes(c.category)) earned += c.credit;
+        }
+
         return {
           key,
           label: CATEGORY_KEY_LABEL[key] ?? key,
           required,
-          earned: null,
-          status: 'unavailable' as const,
-          note: '과목별 소속 전공 구분 불가(요람/개설과목 데이터엔 학생 본인 기준 전공 소속이 없음)',
+          earned,
+          status: earned >= required ? ('pass' as const) : ('fail' as const),
         };
-      }
-
-      let earned = 0;
-      for (const c of courses) {
-        if (!c.category) continue;
-        // 중핵교양필수를 본인 전공(제1/2전공) 학과가 개설한 경우 전공학점으로 인정되는 경우가 있어
-        // (사용자 확인) major 쪽으로 재분류하고 generalCore에선 제외한다.
-        const isGeneralCoreOwnMajor =
-          c.category === '중핵교양필수' && !!c.offeringDepartmentName && ownDeptNames.includes(c.offeringDepartmentName);
-
-        if (key === 'major' && isGeneralCoreOwnMajor) {
-          earned += c.credit;
-          continue;
-        }
-        if (key === 'generalCore' && isGeneralCoreOwnMajor) continue;
-        if (categories.includes(c.category)) earned += c.credit;
-      }
-
-      return {
-        key,
-        label: CATEGORY_KEY_LABEL[key] ?? key,
-        required,
-        earned,
-        status: earned >= required ? ('pass' as const) : ('fail' as const),
-      };
-    });
+      });
   }
 
   // 부족한 카테고리별로 아직 안 들은 요람 과목을 찾고, 최근 2개년 개설이력(CourseOffering)에서
