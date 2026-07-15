@@ -134,8 +134,10 @@ export class GraduationService {
     const requirement = await this.prisma.catalogGraduationRequirement.findFirst({
       where: {
         departmentId: profile.majorDepartmentId,
-        admissionYearFrom: { lte: profile.admissionYear },
-        OR: [{ admissionYearTo: null }, { admissionYearTo: { gte: profile.admissionYear } }],
+        AND: [
+          { OR: [{ admissionYearFrom: null }, { admissionYearFrom: { lte: profile.admissionYear } }] },
+          { OR: [{ admissionYearTo: null }, { admissionYearTo: { gte: profile.admissionYear } }] },
+        ],
       },
     });
     if (!requirement) {
