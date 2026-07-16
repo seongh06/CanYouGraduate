@@ -29,7 +29,9 @@ export function parseCourseOfferingWorkbook(workbook: Workbook): ParsedCourseOff
     const section = cell(5);
     const hoursOverCredit = cell(7); // "4/3"(시간/학점) 형식 — 뒤쪽 숫자가 학점
     const professor = cell(9);
-    const foreignLanguageType = cell(11) || null; // 예: "A형(영)" — 빈 칸이면 일반(한국어) 강의
+    const remark = cell(12); // "비고" — 일부 학과는 외국어 강의여부(11번 컬럼)를 안 채우고 여기에 "A형" 등을 적어둔다(사용자 확인)
+    // 예: "A형(영)" — 11번 컬럼이 비어있으면 비고에서 "X형" 패턴을 찾아 대신 쓴다.
+    const foreignLanguageType = cell(11) || (/[A-Za-z]형/.exec(remark)?.[0] ?? null);
 
     if (!code || !name) return;
 

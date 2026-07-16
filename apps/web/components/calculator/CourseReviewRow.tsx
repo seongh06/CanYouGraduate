@@ -59,7 +59,7 @@ export function CourseReviewRow({
                 학과개편 대상
               </span>
             )}
-            {isManuallyCategorized && (
+            {isManuallyCategorized && !course.isSharedUniversity && (
               <span className="rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[10px] font-extrabold text-brand-blue">
                 직접 입력됨(공유대학 등)
               </span>
@@ -82,16 +82,10 @@ export function CourseReviewRow({
             )}
           </span>
         )}
-        {(course.crossMajorEligible || course.crossMajorRecognized) && (
-          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#D6EEDD] bg-[#F2FBF5] px-3 py-2 text-xs font-bold text-brand-success">
-            <input
-              type="checkbox"
-              checked={course.crossMajorRecognized}
-              onChange={(e) => onToggleCrossMajorRecognition(course.id, e.target.checked)}
-              className="h-3.5 w-3.5 accent-brand-success"
-            />
-            🎓 타전공학점 인정 신청
-          </label>
+        {course.crossMajorRecognized && (
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#E7F6EE] px-[9px] py-1 text-[11px] font-bold text-brand-success">
+            🎓 타전공학점 인정됨
+          </span>
         )}
         <button
           onClick={() => setOpen((v) => !v)}
@@ -111,6 +105,17 @@ export function CourseReviewRow({
             />
             🌐 외국어강의로 표시
           </label>
+          {(course.category === '타전공선택' || course.crossMajorRecognized) && (
+            <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#D6EEDD] bg-[#F2FBF5] px-3 py-2 text-xs font-bold text-brand-success">
+              <input
+                type="checkbox"
+                checked={course.crossMajorRecognized}
+                onChange={(e) => onToggleCrossMajorRecognition(course.id, e.target.checked)}
+                className="h-3.5 w-3.5 accent-brand-success"
+              />
+              🎓 타전공이지만 내 전공학점으로 인정돼요
+            </label>
+          )}
           <SubstitutionSearch
             onPick={(catalogCourseId) => {
               onSetSubstitution(course.id, catalogCourseId);
