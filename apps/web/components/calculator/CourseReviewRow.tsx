@@ -49,7 +49,12 @@ export function CourseReviewRow({
         <div className="min-w-[140px] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-bold">{course.name}</span>
-            {course.needsSubstitution && (
+            {course.isSharedUniversity && (
+              <span className="rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[10px] font-extrabold text-brand-blue">
+                🏫 공유대학
+              </span>
+            )}
+            {course.needsSubstitution && !course.isSharedUniversity && (
               <span className="rounded-full bg-[#FFF1D6] px-2 py-0.5 text-[10px] font-extrabold text-[#B45309]">
                 학과개편 대상
               </span>

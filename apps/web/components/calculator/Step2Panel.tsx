@@ -92,7 +92,9 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
         <div className="text-[13px] font-bold text-brand-blue">사용법 안내</div>
         <ul className="mt-1.5 flex flex-col gap-1 text-xs text-brand-text-muted">
           <li>🌐 외국어강의: 과목의 [설정] 버튼을 누르면 외국어강의 체크박스가 나와요.</li>
-          <li>🏫 공유대학(요람에 없는 과목): [설정] → &ldquo;요람에 없는 과목인가요?&rdquo; 눌러서 이수구분을 직접 입력하세요.</li>
+          <li>
+            🏫 공유대학 과목은 자동으로 표시돼요 — [설정] → &ldquo;요람에 없는 과목인가요?&rdquo; 눌러서 이수구분만 입력하면 돼요.
+          </li>
         </ul>
       </Card>
       <RetakeBanner

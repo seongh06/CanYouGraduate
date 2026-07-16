@@ -21,6 +21,8 @@ export interface CourseItem {
   substitutionName: string | null;
   crossMajorRecognized: boolean;
   crossMajorEligible: boolean;
+  isOnline: boolean;
+  isSharedUniversity: boolean;
 }
 
 export function syncEverytime(sessionId: string, url: string) {

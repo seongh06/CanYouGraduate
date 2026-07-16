@@ -165,6 +165,12 @@ model Course {
   // 타전공학점인정 제도(CrossMajorCreditRecognition) 신청 여부 — 검증 화면에서 사용자가 직접 토글.
   // true면 graduation 계산에서 이 과목의 category를 전공(제1전공선택 상당)으로 취급한다(이슈 #51).
   crossMajorRecognized        Boolean      @default(false) @map("cross_major_recognized")
+  // 요일/교시 그리드가 아니라 별도 목록(.nontimes)에 나오는 온라인 강의(Self-Making Job 등) — STEP1
+  // 화면에서 타임테이블 최하단 별도 섹션에 표시한다(이슈 #53).
+  isOnline                    Boolean      @default(false) @map("is_online")
+  // 강의실 칸에 "공유대학"이 그대로 찍혀 나오는 타 대학 학점교류 과목 — 요람에 없어 매칭 실패가
+  // 예정된 과목임을 검증 화면에서 미리 알려준다(이슈 #53).
+  isSharedUniversity          Boolean      @default(false) @map("is_shared_university")
 
   semester     Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   // 대체인정 연결된 요람 과목이 삭제되어도 수강기록 자체는 남기고 연결만 해제한다.
