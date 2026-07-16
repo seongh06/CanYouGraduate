@@ -56,6 +56,7 @@ export interface MajorResult {
   creditBreakdown: CreditBreakdownItem[];
   comprehensiveExam: unknown;
   substitutionRules: unknown;
+  mandatoryRequirements: unknown;
   languageScoreStandard: unknown;
   thesisOptional: boolean;
 }
@@ -67,6 +68,7 @@ const EMPTY_REQUIREMENT_VIEW = {
   creditBreakdownRequired: {},
   comprehensiveExam: null,
   substitutionRules: [],
+  mandatoryRequirements: [],
   languageScoreStandard: null,
   thesisOptional: false,
 };
@@ -169,6 +171,7 @@ export class GraduationService {
       foreignLanguageCredits,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
+      mandatoryRequirements: requirement.mandatoryRequirements,
       secondMajor,
       languageScore: extra.languageScore,
       languageExamType: extra.languageExamType,
@@ -266,6 +269,7 @@ export class GraduationService {
       creditBreakdownRequired: requirement.creditBreakdown ?? {},
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
+      mandatoryRequirements: requirement.mandatoryRequirements,
       languageScoreStandard: requirement.languageScoreStandard,
       thesisOptional: requirement.thesisOptional,
     };
@@ -288,6 +292,7 @@ export class GraduationService {
         creditBreakdown: [],
         comprehensiveExam: null,
         substitutionRules: [],
+        mandatoryRequirements: [],
         languageScoreStandard: null,
         thesisOptional: false,
       };
@@ -309,6 +314,7 @@ export class GraduationService {
       creditBreakdown,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
+      mandatoryRequirements: requirement.mandatoryRequirements,
       languageScoreStandard: requirement.languageScoreStandard,
       thesisOptional: requirement.thesisOptional,
     };

@@ -200,13 +200,18 @@ export default function ResultPage() {
             <RequirementInfoPanel
               comprehensiveExam={activeMajor.comprehensiveExam}
               substitutionRules={activeMajor.substitutionRules}
+              mandatoryRequirements={activeMajor.mandatoryRequirements}
             />
           </>
         )
       ) : (
         <>
           <CreditBreakdownList items={data.creditBreakdown} />
-          <RequirementInfoPanel comprehensiveExam={data.comprehensiveExam} substitutionRules={data.substitutionRules} />
+          <RequirementInfoPanel
+            comprehensiveExam={data.comprehensiveExam}
+            substitutionRules={data.substitutionRules}
+            mandatoryRequirements={data.mandatoryRequirements}
+          />
         </>
       )}
 
