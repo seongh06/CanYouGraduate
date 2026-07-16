@@ -17,7 +17,13 @@ export interface UpdateCourseBody {
   category?: string | null;
   credit?: number;
   general?: boolean;
+  foreignLanguageType?: string | null;
+  crossMajorRecognized?: boolean;
 }
+
+// 크롤링/개설과목 매칭으로 채워지지 않은 과목을 검증 화면에서 수동으로 "외국어강의"로 표시할 때 쓰는 값.
+// 실제 엑셀 "외국어 강의여부" 원문 값(예: "A형(영)")과 구분되는 걸 알 수 있게 라벨을 다르게 둔다.
+export const MANUAL_FOREIGN_LANGUAGE_LABEL = '수동 지정';
 
 function isNonNegativeInt(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
@@ -86,6 +92,18 @@ export class CourseService {
         throw new BadRequestException('일반 일정(general) 값이 올바르지 않습니다.');
       }
       data.general = body.general;
+    }
+    if ('foreignLanguageType' in body) {
+      if (body.foreignLanguageType !== null && typeof body.foreignLanguageType !== 'string') {
+        throw new BadRequestException('외국어강의 여부(foreignLanguageType) 값이 올바르지 않습니다.');
+      }
+      data.foreignLanguageType = body.foreignLanguageType;
+    }
+    if ('crossMajorRecognized' in body) {
+      if (typeof body.crossMajorRecognized !== 'boolean') {
+        throw new BadRequestException('타전공학점인정 신청(crossMajorRecognized) 값이 올바르지 않습니다.');
+      }
+      data.crossMajorRecognized = body.crossMajorRecognized;
     }
 
     await this.prisma.course.update({ where: { id: course.id }, data });

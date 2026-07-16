@@ -61,6 +61,7 @@ model Department {
   majorProfiles          Profile[]                      @relation("MajorDepartment")
   secondMajorProfiles    Profile[]                      @relation("SecondMajorDepartment")
   minorProfiles          Profile[]                      @relation("MinorDepartment")
+  crossMajorCreditRecognitions CrossMajorCreditRecognition[]
 
   @@index([universityId])
   @@index([collegeId])
@@ -161,6 +162,9 @@ model Course {
   offeringDepartmentName      String?      @map("offering_department_name")
   // CourseOffering의 "외국어 강의여부" 원문(예: "A형(영)") — 외국어로 진행되는 강의임을 STEP1에 표시.
   foreignLanguageType         String?      @map("foreign_language_type")
+  // 타전공학점인정 제도(CrossMajorCreditRecognition) 신청 여부 — 검증 화면에서 사용자가 직접 토글.
+  // true면 graduation 계산에서 이 과목의 category를 전공(제1전공선택 상당)으로 취급한다(이슈 #51).
+  crossMajorRecognized        Boolean      @default(false) @map("cross_major_recognized")
 
   semester     Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   // 대체인정 연결된 요람 과목이 삭제되어도 수강기록 자체는 남기고 연결만 해제한다.
@@ -212,6 +216,26 @@ model CourseOffering {
   @@unique([universityId, year, term, code, section])
   @@index([universityId, year, term, name])
   @@map("course_offerings")
+}
+
+// 가톨릭대 타전공학점인정 제도(https://www.catholic.ac.kr/ko/campuslife/notice.do?mode=view&articleNo=272670)
+// 안내 엑셀("타전공_학점인정_교과목_목록(2026.06).xlsx", 8개 시트) 전량 임포트. 학생 본인 전공
+// (recognizingDepartment) 입장에서, 다른 학과(offeringDepartmentName)가 개설한 특정 과목을 들으면
+// 전공학점으로 인정해주는 제도 — Course FK가 아니라 (학과, 과목명, 과목코드) 조합으로 매칭한다
+// (엑셀 자체가 요람 DB와 별도로 관리되는 목록이라 CatalogCourse와 직접 연결되지 않음).
+model CrossMajorCreditRecognition {
+  id                     Int     @id @default(autoincrement())
+  recognizingDepartmentId Int    @map("recognizing_department_id")
+  offeringDepartmentName String  @map("offering_department_name") // 엑셀 "개설학과" 원문, Department FK 아님(계열/전공명이 섞여있어 매칭 불안정)
+  courseName             String  @map("course_name")
+  courseCode             String  @map("course_code") // 과목코드 변경 이력은 "06540->06549"처럼 원문 그대로 저장
+  note                   String? // 엑셀 "비고"(적용시기, 예외조건 등)
+  seriesLabel            String? @map("series_label") // 엑셀 시트/계열 라벨(예: "인문계열", "AI전자정보융합대학") — 정보성
+
+  recognizingDepartment Department @relation(fields: [recognizingDepartmentId], references: [id])
+
+  @@index([recognizingDepartmentId, courseName])
+  @@map("cross_major_credit_recognitions")
 }
 
 // 43개 학과 전수조사(가톨릭대_학과별_졸업요건_스키마_v3.xlsx) 결과 반영. 졸업요건은 학과 단위가 아니라

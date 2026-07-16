@@ -12,7 +12,8 @@
     "seed": "ts-node prisma/seed.ts",
     "crawl:catalog": "ts-node scripts/crawl-catalog.ts",
     "import:offerings": "ts-node scripts/import-course-offerings.ts",
-    "crawl:academic": "ts-node scripts/crawl-academic-requirements.ts"
+    "crawl:academic": "ts-node scripts/crawl-academic-requirements.ts",
+    "import:cross-major-credits": "ts-node scripts/import-cross-major-credits.ts"
   },
   "dependencies": {
     "@canyougraduate/shared-types": "*",

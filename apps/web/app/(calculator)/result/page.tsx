@@ -126,6 +126,8 @@ export default function ResultPage() {
         completionPercent={data.completionPercent}
         creditBreakdown={data.creditBreakdown}
         secondMajorCreditBreakdown={data.secondMajor?.creditBreakdown}
+        commonLiberalArts={data.commonLiberalArts}
+        minor={data.minor}
       />
 
       {profileQuery.data && (
@@ -193,7 +195,9 @@ export default function ResultPage() {
         languageScorePass={data.languageScorePass}
         thesisPass={data.thesisPass}
         thesisOptional={data.thesisOptional}
-        showThesisSection={!(data.thesisOptional && data.comprehensiveExam?.hasExam === 'N')}
+        // 졸업논문/시험 자기신고 섹션은 사용자 판단으로 UI에서 완전히 숨김(이슈 #51) — 이미 통과했으면
+        // 애초에 이 화면을 볼 필요가 없다는 지적. thesisPass/thesisOptional 데이터·API는 유지.
+        showThesisSection={false}
         onSubmitLanguageScore={(examType, score) => languageMutation.mutate({ examType, score })}
         onToggleThesis={(pass) => thesisMutation.mutate(pass)}
       />

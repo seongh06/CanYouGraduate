@@ -2,7 +2,7 @@
 
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { setSubstitution, updateCourse } from '../../lib/api/courses';
+import { MANUAL_FOREIGN_LANGUAGE_LABEL, setSubstitution, updateCourse } from '../../lib/api/courses';
 import { listDuplicates, toggleRetake } from '../../lib/api/duplicates';
 import { listCourses, listSemesters } from '../../lib/api/everytime';
 import { useSession } from '../../lib/session';
@@ -71,6 +71,20 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
     onSuccess: invalidateAll,
   });
 
+  const foreignLanguageMutation = useMutation({
+    mutationFn: ({ courseId, checked }: { courseId: number; checked: boolean }) =>
+      updateCourse(sessionId as string, courseId, {
+        foreignLanguageType: checked ? MANUAL_FOREIGN_LANGUAGE_LABEL : null,
+      }),
+    onSuccess: invalidateAll,
+  });
+
+  const crossMajorRecognitionMutation = useMutation({
+    mutationFn: ({ courseId, checked }: { courseId: number; checked: boolean }) =>
+      updateCourse(sessionId as string, courseId, { crossMajorRecognized: checked }),
+    onSuccess: invalidateAll,
+  });
+
   return (
     <div className="pb-24">
       <RetakeBanner
@@ -87,6 +101,8 @@ export function Step2Panel({ onCalculate }: Step2PanelProps) {
             setSubstitutionMutation.mutate({ courseId, catalogCourseId })
           }
           onManualCategory={(courseId, input) => manualCategoryMutation.mutate({ courseId, ...input })}
+          onToggleForeignLanguage={(courseId, checked) => foreignLanguageMutation.mutate({ courseId, checked })}
+          onToggleCrossMajorRecognition={(courseId, checked) => crossMajorRecognitionMutation.mutate({ courseId, checked })}
         />
       ))}
       <div className="fixed inset-x-0 bottom-7 flex justify-center px-4">

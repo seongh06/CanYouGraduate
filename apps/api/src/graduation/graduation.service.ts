@@ -3,6 +3,22 @@ import type { CatalogGraduationRequirement, Profile } from '@prisma/client';
 import { groupDuplicateCourses } from '../common/retake-grouping.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CATEGORY_KEY_LABEL, resolveCategories } from './category-key-map';
+import { getCommonLiberalArtsRequirement } from './common-liberal-arts';
+
+// 부전공 졸업요건은 학과별 데이터가 없어 가톨릭대 공통 최소학점(21학점)을 고정 기준으로 쓴다(이슈 #51,
+// 사용자 확인). 요람 데이터가 갖춰지면 학과별 요건으로 대체 가능하도록 상수로 분리해둔다.
+const MINOR_REQUIRED_CREDIT = 21;
+
+// 학과별 creditBreakdown JSON에 남아있던 기초/중핵교양 관련 키(크롤러 한글 헤더 + 레거시 영어 키
+// 두 체계 모두) — commonLiberalArts 고정 테이블로 대체됐으므로 학과별 표시에서는 제외한다.
+const COMMON_LIBERAL_ARTS_KEYS = new Set([
+  '기초필수',
+  '중핵교양',
+  '교양이수학점 계',
+  'generalBasicRequired',
+  'generalCore',
+  'general',
+]);
 
 interface ResolvedCourse {
   name: string;
@@ -19,13 +35,14 @@ export interface SuggestedCourses {
 }
 
 export type CreditBreakdownItem =
-  | { key: string; label: string; required: number; earned: number; status: 'pass' }
+  | { key: string; label: string; required: number; earned: number; status: 'pass'; earnedCourses: string[] }
   | {
       key: string;
       label: string;
       required: number;
       earned: number;
       status: 'fail';
+      earnedCourses: string[];
       suggestedCourses?: SuggestedCourses | null;
     }
   | { key: string; label: string; required: number; earned: null; status: 'unavailable'; note: string };
@@ -101,6 +118,28 @@ export class GraduationService {
 
     const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames, ownDeptNames.second);
 
+    const commonReq = getCommonLiberalArtsRequirement(profile.admissionYear, ownDeptNames.first[0] ?? '');
+    const commonLiberalArts = commonReq
+      ? {
+          basicRequired: commonReq.basicRequired,
+          basicEarned: resolvedCourses.filter((c) => c.category === '기초교양필수').reduce((sum, c) => sum + c.credit, 0),
+          coreRequired: commonReq.coreRequired,
+          coreEarned: resolvedCourses.filter((c) => c.category === '중핵교양필수').reduce((sum, c) => sum + c.credit, 0),
+        }
+      : null;
+
+    const minorDept = profile.minorDepartmentId
+      ? await this.prisma.department.findUnique({ where: { id: profile.minorDepartmentId } })
+      : null;
+    const minor = minorDept
+      ? {
+          requiredCredit: MINOR_REQUIRED_CREDIT,
+          earnedCredit: resolvedCourses
+            .filter((c) => c.offeringDepartmentName === minorDept.name)
+            .reduce((sum, c) => sum + c.credit, 0),
+        }
+      : null;
+
     const extra = await this.getOrCreateExtra(profile.id);
     const catholicChecksCatalog = await this.listApplicableCatholicChecks(profile);
     const checkedMap = (extra.catholicChecks ?? {}) as Record<string, boolean>;
@@ -117,6 +156,8 @@ export class GraduationService {
       remainingCredits,
       completionPercent,
       creditBreakdown,
+      commonLiberalArts,
+      minor,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
       secondMajor,
@@ -366,7 +407,9 @@ export class GraduationService {
       .filter((c) => !excludedIds.has(c.id))
       .map((c) => ({
         name: c.name,
-        category: c.substitution ? c.substitution.category : c.category,
+        // 타전공학점인정 신청(crossMajorRecognized)된 과목은 원래 이수구분(자유선택교양/타전공선택
+        // 등)과 무관하게 전공선택으로 취급한다 — 대체인정(substitution)이 있으면 그쪽이 우선.
+        category: c.substitution ? c.substitution.category : c.crossMajorRecognized ? '제1전공선택' : c.category,
         credit: c.substitution ? c.substitution.credit : c.credit,
         offeringDepartmentName: c.offeringDepartmentName,
         // 요람 코드도 대체인정도 없지만 사용자가 이수구분을 직접 지정한 과목(공유대학 등 요람에
@@ -388,9 +431,13 @@ export class GraduationService {
     return Object.entries(breakdown)
       // majorDeepMin(전공심화 기준)과 doubleMajorMin(복수전공 기준)은 같은 과목을 세는 서로 다른
       // 학점 문턱값이라 동시에 적용될 수 없다 — 이 학생 상황에 맞는 쪽 하나만 보여준다.
+      // 기초교양/중핵교양은 학과 무관 공통 요건이라 common-liberal-arts.ts 고정 테이블로 따로
+      // 계산해서 탭 바깥에 보여준다 — 여기(학과별 창구)에 다시 나오면 학과 요건처럼 오해할 수 있어
+      // 제외한다(이슈 #51, 컴공에서 "자유선택교양 25학점"으로 오해했던 문제의 근본 원인).
       .filter(([key]) => {
         if (key === 'majorDeepMin') return !preferDoubleMajorMin;
         if (key === 'doubleMajorMin') return preferDoubleMajorMin;
+        if (COMMON_LIBERAL_ARTS_KEYS.has(key)) return false;
         return true;
       })
       .map(([key, required]) => {
@@ -407,6 +454,7 @@ export class GraduationService {
         }
 
         let earned = 0;
+        const earnedCourses: string[] = [];
         for (const c of courses) {
           if (!c.category) continue;
           // 중핵교양필수를 본인 전공(제1/2전공) 학과가 개설한 경우 전공학점으로 인정되는 경우가 있어
@@ -416,10 +464,14 @@ export class GraduationService {
 
           if ((key === 'major' || key === 'majorDeepMin' || key === 'doubleMajorMin') && isGeneralCoreOwnMajor) {
             earned += c.credit;
+            earnedCourses.push(c.name);
             continue;
           }
           if (key === 'generalCore' && isGeneralCoreOwnMajor) continue;
-          if (categories.includes(c.category)) earned += c.credit;
+          if (categories.includes(c.category)) {
+            earned += c.credit;
+            earnedCourses.push(c.name);
+          }
         }
 
         return {
@@ -427,6 +479,7 @@ export class GraduationService {
           label: CATEGORY_KEY_LABEL[key] ?? key,
           required,
           earned,
+          earnedCourses,
           status: earned >= required ? ('pass' as const) : ('fail' as const),
         };
       });

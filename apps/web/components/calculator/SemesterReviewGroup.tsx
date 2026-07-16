@@ -7,16 +7,32 @@ interface SemesterReviewGroupProps {
   courses: CourseItem[];
   onSetSubstitution: (courseId: number, catalogCourseId: number) => void;
   onManualCategory: (courseId: number, input: { category: string; credit: number }) => void;
+  onToggleForeignLanguage: (courseId: number, checked: boolean) => void;
+  onToggleCrossMajorRecognition: (courseId: number, checked: boolean) => void;
 }
 
-export function SemesterReviewGroup({ semester, courses, onSetSubstitution, onManualCategory }: SemesterReviewGroupProps) {
+export function SemesterReviewGroup({
+  semester,
+  courses,
+  onSetSubstitution,
+  onManualCategory,
+  onToggleForeignLanguage,
+  onToggleCrossMajorRecognition,
+}: SemesterReviewGroupProps) {
   if (courses.length === 0) return null;
 
   return (
     <Card className="mb-3.5">
       <div className="mb-2.5 text-[13px] font-extrabold text-brand-text-muted">{semester.label}</div>
       {courses.map((c) => (
-        <CourseReviewRow key={c.id} course={c} onSetSubstitution={onSetSubstitution} onManualCategory={onManualCategory} />
+        <CourseReviewRow
+          key={c.id}
+          course={c}
+          onSetSubstitution={onSetSubstitution}
+          onManualCategory={onManualCategory}
+          onToggleForeignLanguage={onToggleForeignLanguage}
+          onToggleCrossMajorRecognition={onToggleCrossMajorRecognition}
+        />
       ))}
     </Card>
   );

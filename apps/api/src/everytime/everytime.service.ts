@@ -259,6 +259,17 @@ export class EverytimeService {
       include: { substitution: true },
     });
 
+    // 타전공학점인정: 이 학생의 제1전공 기준으로 인정 가능한 과목명 집합을 한 번만 조회해두고
+    // 매 과목마다 이름으로 대조한다(엑셀 목록이 과목코드 개정 이력을 포함해 코드보다 이름이 안정적).
+    const crossMajorEligibleNames = new Set(
+      (
+        await this.prisma.crossMajorCreditRecognition.findMany({
+          where: { recognizingDepartmentId: profile.majorDepartmentId },
+          select: { courseName: true },
+        })
+      ).map((r) => r.courseName),
+    );
+
     return {
       courses: courses.map((c) => ({
         id: c.id,
@@ -275,6 +286,8 @@ export class EverytimeService {
         // (graduation.service.ts의 needsSubstitution 판정과 동일하게 맞춤).
         needsSubstitution: !c.general && !c.code && !c.substitution && !c.category,
         substitutionName: c.substitution?.name ?? null,
+        crossMajorRecognized: c.crossMajorRecognized,
+        crossMajorEligible: crossMajorEligibleNames.has(c.name),
       })),
     };
   }
