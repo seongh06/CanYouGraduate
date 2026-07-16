@@ -8,6 +8,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   제2전공필수: '#7C3AED',
   제2전공선택: '#A78BFA',
   타전공선택: '#94A3B8',
+  부전공: '#4a3aa7',
   전공기초: '#FF8B48',
   기초교양필수: '#12B76A',
   중핵교양필수: '#0EA5A5',
