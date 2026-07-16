@@ -904,6 +904,28 @@ async function main() {
       sourceUrl: 'https://ai.catholic.ac.kr/ai/course/academic.do',
       notes: "페이지가 '2024학번 기준'이라고 명시되어 있어 18~23학번 데이터는 별도 확인 필요. 21,22학번은 전공필수 0·전공선택 36(66)",
     },
+    {
+      // 인공지능학과는 2021학번부터 신입생을 모집했는데(WebSearch로 확인) 요건 데이터는 2024학번
+      // 행(id 14)뿐이라 2021~2023학번이 전부 404였음(이슈 #59). id14 notes에 이미 "21,22학번은
+      // 전공필수 0·전공선택 36(66)"이라고 적혀있었는데 실제 행으로는 안 만들어져 있던 상태 —
+      // 이번에 그 메모를 실제 데이터로 반영. 23학번은 21~22와 같은 제도인지 원문 미확인이라
+      // 조심스럽게 같은 구간으로 묶되 낮은 verified로 표시.
+      id: 60,
+      departmentId: 347,
+      cohortLabel: '21~23학번 (2024학번 이전, 전공필수 없이 전공선택만)',
+      admissionYearFrom: 2021,
+      admissionYearTo: 2023,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공선택: 36 },
+      comprehensiveExam: { hasExam: 'N', detail: '졸업시험 없음(2024학번과 동일하다고 가정, 원문 미확인)' },
+      substitutionRules: [],
+      dataSource: 'SEARCH_SNIPPET',
+      verified: false,
+      trackRestrictionNote: '없음(트랙 없음). 전공선택은 36학점 이상 66학점 이하 권장(상한은 creditBreakdown에 표현 불가, 참고용)',
+      sourceUrl: 'https://ai.catholic.ac.kr/ai/course/academic.do',
+      notes:
+        'academic.do 페이지 자체가 "21,22학번은 전공필수 0·전공선택 36(66)"이라고 명시(id14 작성 당시 메모로만 남아있던 부분). 23학번도 같은 제도인지, 졸업논문/인턴십/졸업작품 택1 요건과 어학성적 필수요건이 2024학번과 동일한지는 원문 미확인 — 정확도 재확인 권장.',
+    },
     // ── 화학과 (부분대체형, 패턴 ⑨) ──
     {
       id: 15,
@@ -952,6 +974,31 @@ async function main() {
       sourceUrl: 'https://socialwelfare.catholic.ac.kr/socialwelfare/course/academic.do',
       notes:
         '전학년 평점평균 2.00 이상 별도 요건. 사회복지사 2급 자격증이 교과과정 이수와 연계되어 있어 졸업요건이 시험이 아니라 자격증 실습 요건 쪽에 있을 가능성 높음 — 학과 공지사항 게시판에서 "졸업요건 제출 안내" 유형 게시물 확인 필요(크롤러 폴백 대상 사례)',
+    },
+    {
+      // 20학번 이후 데이터가 통째로 빠져있던 걸 이번에 발견(이슈 #59) — 2020~2026학번(현재 재학생
+      // 대부분)이 매칭되는 요건이 아예 없어 계산 자체가 404였음. academic.do의 학번별 이수학점표에서
+      // 20~21학번/22~25학번 전공 계열 학점 구성이 동일해(기초/중핵교양만 다름, common-liberal-arts.ts가
+      // 이미 관리) 하나로 통합. 26학번 이후 값은 표에 없어 이 행이 계속 적용되는 것으로 임시 처리.
+      id: 58,
+      departmentId: 307,
+      cohortLabel: '20학번~ (2020학번 포함 이후, 전공 학점 구성 기준)',
+      admissionYearFrom: 2020,
+      totalCreditMin: 130,
+      // '전공기초'/'전공필수'/'전공선택'는 category-key-map.ts가 실제 인식하는 한글 키(기존
+      // 18~19학번 행의 majorSelect/majorSelectAlt는 매핑이 없어 이미 'unavailable'로만 뜨던
+      // 상태였음 — 이번 행은 재발 방지 차원에서 인식되는 키로 정정). 전공선택 상한(60)은 현재
+      // creditBreakdown이 "최소 학점 1개"만 표현 가능해 note로만 남긴다.
+      creditBreakdown: { 전공기초: 9, 전공필수: 6, 전공선택: 30 },
+      comprehensiveExam: {
+        detail: '18~19학번과 동일하게 학과 공식 학사정보 페이지엔 졸업시험/졸업논문/대체인정 정보 자체가 없음',
+      },
+      dataSource: 'NOT_FOUND',
+      substitutionRules: [],
+      trackRestrictionNote: '없음(트랙 없음). 전공선택은 30학점 이상 60학점 이하 권장(상한은 creditBreakdown에 표현 불가, 참고용)',
+      sourceUrl: 'https://socialwelfare.catholic.ac.kr/socialwelfare/course/academic.do',
+      notes:
+        '전학년 평점평균 2.00 이상 별도 요건(18~19학번과 동일). 사회복지사 2급 자격증 연계 실습 요건 쪽에 실제 졸업요건이 있을 가능성 — 여전히 미확인. academic.do 학번별 이수학점표 확인(20~21학번: 기초13/중핵12/전공기초9/전공필수6/전공선택30~60, 22~25학번: 기초13/중핵15/전공기초9/전공필수6/전공선택30~60 — 기초/중핵은 common-liberal-arts.ts로 이관되어 이 행엔 전공 계열만 반영).',
     },
     // ── 데이터사이언스학과 ──
     {
@@ -1242,6 +1289,27 @@ async function main() {
         '없음(트랙 없음). 수학과 교직과정은 2022년 입학자부터 폐지됨. 영어성적/자격증 대체자도 반드시 응시원서는 제출해야 함',
       sourceUrl: 'https://math.catholic.ac.kr/math/course/academic.do',
       notes: '이 학과는 실제 페이지 직접 열람으로 확인한 데이터임(Claude Code 세션 403 차단 상태에서 정보없음으로 남겼던 부분 — 대체 완료). 논문 옵션 없음(시험 단일경로)',
+    },
+    {
+      // 2025년 2월 졸업대상자부터 새 제도(id 29)가 적용된다는 게 확인됐는데, 그 이전(2018~2024학번)
+      // 대상 행이 아예 없어 이 구간 학생은 계산 자체가 404였음(이슈 #59) — 학과 공식 페이지엔
+      // 현재 제도만 게시돼 있고 구제도 원문은 못 찾음(academic.do 재확인, 학과 사무실 문의 안내만
+      // 있음). 계산이 막히지 않도록 최소 정보만 채워 넣고 구제도 상세는 미확인으로 남긴다.
+      id: 59,
+      departmentId: 319,
+      cohortLabel: '2018~2024학번 (2025년 2월 이전 졸업대상자, 구제도)',
+      admissionYearFrom: 2018,
+      admissionYearTo: 2024,
+      totalCreditMin: 130,
+      comprehensiveExam: {
+        detail: '2025년 2월 졸업대상자부터 새 졸업종합시험 제도가 적용된다고 명시되어 있으나, 그 이전 구제도 원문은 학과 공식 페이지에 게시돼 있지 않음(재확인 시점 기준)',
+      },
+      dataSource: 'NOT_FOUND',
+      substitutionRules: [],
+      trackRestrictionNote: '없음(트랙 없음). 정확한 정보는 학과 사무실(mathmts@catholic.ac.kr, 02-2164-4340) 문의 필요',
+      sourceUrl: 'https://math.catholic.ac.kr/math/course/academic.do',
+      notes:
+        '이 학번대는 재학생 다수를 포함하는 구간이라 우선순위가 높음 — creditBreakdown/comprehensiveExam 상세는 학과 사무실 확인 후 보강 필요. 전공기초/전공필수/전공선택 학점 구성도 신제도(id 29)와 다를 수 있어 임의로 추정하지 않음.',
     },
     // ── 회계학과 ──
     {

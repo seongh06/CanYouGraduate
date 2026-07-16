@@ -31,10 +31,19 @@ export interface SubstitutionRule {
   note?: string;
 }
 
+// 대체(택1)가 아니라 전원이 병렬로 모두 충족해야 하는 조건(예: 졸업논문+어학성적+상담 4회를
+// 전부 만족해야 하는 경우) — substitutionRules와 구조는 비슷하지만 의미가 다르다.
+export interface MandatoryRequirement {
+  type: string;
+  condition: string;
+  note?: string;
+}
+
 export interface MajorRequirementView {
   totalCreditMin: number | null;
   comprehensiveExam: Record<string, unknown> | null;
   substitutionRules: SubstitutionRule[];
+  mandatoryRequirements: MandatoryRequirement[];
   languageScoreStandard: Record<string, number> | null;
   thesisOptional: boolean;
 }
@@ -78,6 +87,7 @@ export interface GraduationResult {
   foreignLanguageCredits: ForeignLanguageCredits;
   comprehensiveExam: Record<string, unknown> | null;
   substitutionRules: SubstitutionRule[];
+  mandatoryRequirements: MandatoryRequirement[];
   secondMajor: SecondMajorResult | null;
   languageScore: number | null;
   languageExamType: string | null;
