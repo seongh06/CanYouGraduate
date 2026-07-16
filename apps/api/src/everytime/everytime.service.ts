@@ -199,7 +199,7 @@ export class EverytimeService {
     const semesters = await this.prisma.semester.findMany({
       where: { profileId: profile.id },
       orderBy: { sortOrder: 'asc' },
-      include: { courses: { where: { general: false } } },
+      include: { courses: true },
     });
 
     // sortOrder는 "크롤링 방문 순서"라 실제 학기 순서와 다를 수 있다 — 크롤러가 시작 URL의 학기를
@@ -218,13 +218,16 @@ export class EverytimeService {
       return a.semester.sortOrder - b.semester.sortOrder;
     });
 
+    // 아예 비어있는(과목이 하나도 크롤링되지 않은) 학기는 혼란만 주므로 목록에서 제외한다(이슈 #53).
     return {
-      semesters: withRank.map(({ semester: s }) => ({
-        id: s.id,
-        label: s.label,
-        active: s.active,
-        courseCount: s.courses.length,
-      })),
+      semesters: withRank
+        .filter(({ semester: s }) => s.courses.length > 0)
+        .map(({ semester: s }) => ({
+          id: s.id,
+          label: s.label,
+          active: s.active,
+          courseCount: s.courses.filter((c) => !c.general).length,
+        })),
     };
   }
 

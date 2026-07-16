@@ -379,31 +379,84 @@ async function main() {
     label: string;
     matchPatterns: string[];
     credit?: number;
+    creditGroup?: 'BASIC' | 'CORE';
     admissionYearFrom?: number;
+    admissionYearTo?: number;
     sourceUrl?: string;
   }
 
   // 1학년 1학기부터 순서대로: 인간학1 → 인간학2 → 키스톤디자인(인문창의/창의설계 2과목) →
   // (2학년) 그리스도교사상과문화 → 사랑나누기. 키스톤디자인은 원래 한 항목으로 시딩했었으나
   // 실제로는 서로 다른 두 과목(인문창의/탐구소통 + 창의설계)이라 분리한다(사용자 지적).
+  // creditGroup은 credit_system_YYYY.do 재조사로 확정: 인간학/키스톤디자인/그리스도교사상과문화/
+  // 사랑나누기는 기초교양필수, I-DESIGN/Career-DESIGN은 중핵교양선택필수 소속(사용자 정정, 이슈 #53
+  // — 원래 기초교양으로 오인했던 부분). 2024학번부터 키스톤디자인이 인문창의/창의설계 2과목(각 2학점)
+  // 구성에서 2학년 때 듣는 단일 3학점 과목으로 개편(credit_system_2023.do 등 확인) — 기존 두 항목은
+  // admissionYearTo:2023으로 상한을 걸고 새 단일 항목(id 9)을 2024학번부터 추가한다.
   const CATHOLIC_CHECKS: CatholicCheckSeed[] = [
-    { id: 1, key: 'humanities1', label: '인간학1 이수 여부', matchPatterns: ['인간학1', '인간학 1'], credit: 2 },
-    { id: 2, key: 'humanities2', label: '인간학2 이수 여부', matchPatterns: ['인간학2', '인간학 2'], credit: 2 },
+    {
+      id: 1,
+      key: 'humanities1',
+      label: '인간학1 이수 여부',
+      // 20학번은 "인간학1/2" 분리 없이 "인간학" 단일 과목으로 확인됨(사용자 제보) — 바르 패턴은
+      // 매칭 유틸이 뒤에 숫자가 오면 매치하지 않도록 처리해 "인간학2"와 혼동되지 않는다.
+      matchPatterns: ['인간학1', '인간학 1', '인간학'],
+      credit: 2,
+      creditGroup: 'BASIC',
+    },
+    { id: 2, key: 'humanities2', label: '인간학2 이수 여부', matchPatterns: ['인간학2', '인간학 2'], credit: 2, creditGroup: 'BASIC' },
     {
       id: 3,
       key: 'keystoneDesignHumanities',
       label: '키스톤디자인(인문창의) 이수 여부',
-      matchPatterns: ['키스톤디자인·인문창의', '키스톤디자인·탐구소통'],
+      matchPatterns: ['키스톤디자인·인문창의', '키스톤디자인·탐구소통', '키스톤디자인 인문창의', '키스톤디자인 탐구소통'],
+      credit: 2,
+      creditGroup: 'BASIC',
+      admissionYearTo: 2023,
     },
-    { id: 4, key: 'keystoneDesignCreative', label: '키스톤디자인(창의설계) 이수 여부', matchPatterns: ['키스톤디자인·창의설계'] },
-    { id: 5, key: 'christianThought', label: '그리스도교사상과문화 이수 여부', matchPatterns: ['그리스도교사상과문화', '영성'], credit: 2 },
-    { id: 6, key: 'loveSharing', label: '사랑나누기 이수 여부', matchPatterns: ['사랑나누기', '베나생'], credit: 2 },
-    { id: 7, key: 'iDesign', label: 'I-DESIGN 이수 여부', matchPatterns: ['I-DESIGN', 'I-Design'], admissionYearFrom: 2024 },
+    {
+      id: 4,
+      key: 'keystoneDesignCreative',
+      label: '키스톤디자인(창의설계) 이수 여부',
+      matchPatterns: ['키스톤디자인·창의설계', '키스톤디자인 창의설계'],
+      credit: 2,
+      creditGroup: 'BASIC',
+      admissionYearTo: 2023,
+    },
+    {
+      id: 9,
+      key: 'keystoneDesign2024',
+      label: '키스톤디자인 이수 여부',
+      matchPatterns: ['키스톤디자인'],
+      credit: 3,
+      creditGroup: 'BASIC',
+      admissionYearFrom: 2024,
+    },
+    {
+      id: 5,
+      key: 'christianThought',
+      label: '그리스도교사상과문화 이수 여부',
+      matchPatterns: ['그리스도교사상과문화', '영성'],
+      credit: 2,
+      creditGroup: 'BASIC',
+    },
+    { id: 6, key: 'loveSharing', label: '사랑나누기 이수 여부', matchPatterns: ['사랑나누기', '베나생'], credit: 2, creditGroup: 'BASIC' },
+    {
+      id: 7,
+      key: 'iDesign',
+      label: 'I-DESIGN 이수 여부',
+      matchPatterns: ['I-DESIGN', 'I-Design'],
+      credit: 3,
+      creditGroup: 'CORE',
+      admissionYearFrom: 2024,
+    },
     {
       id: 8,
       key: 'careerDesign',
       label: 'Career-DESIGN 이수 여부',
       matchPatterns: ['Career-DESIGN', 'Career DESIGN', 'Career-Design'],
+      credit: 3,
+      creditGroup: 'CORE',
       admissionYearFrom: 2024,
     },
   ];
@@ -415,7 +468,9 @@ async function main() {
       label: c.label,
       matchPatterns: c.matchPatterns,
       credit: c.credit ?? null,
+      creditGroup: c.creditGroup ?? null,
       admissionYearFrom: c.admissionYearFrom ?? null,
+      admissionYearTo: c.admissionYearTo ?? null,
       dataSource: 'SEARCH_SNIPPET' as const,
       verified: false,
       sourceUrl: c.sourceUrl ?? null,

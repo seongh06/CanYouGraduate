@@ -337,8 +337,14 @@ model CatalogCatholicCheck {
   // 사용자가 명시적으로 남긴 값이 항상 우선한다.
   matchPatterns String[] @default([]) @map("match_patterns")
   credit        Int?
+  // 기초교양필수/중핵교양선택필수 중 어느 쪽 합계에 잡히는 항목인지(SummaryGauge 공통교양 카드
+  // 계산용). null이면 학점 집계 대상이 아닌 정보성 체크(예: 학점 미확정 항목).
+  creditGroup String? @map("credit_group") // 'BASIC' | 'CORE'
   // null=전체 학번 적용. I-DESIGN/Career-DESIGN처럼 특정 학번부터 신설된 항목에만 사용.
   admissionYearFrom Int?                  @map("admission_year_from")
+  // null=이후 학번도 계속 적용. 키스톤디자인처럼 특정 학번부터 항목 구성 자체가 바뀌는 경우
+  // (2024학번부터 인문창의/창의설계 2과목 → 단일 3학점 과목) 이전 항목의 상한을 명시하는 데 쓴다.
+  admissionYearTo   Int?                  @map("admission_year_to")
   dataSource        RequirementDataSource @default(PAGE_DIRECT) @map("data_source")
   verified          Boolean               @default(true)
   sourceUrl         String?               @map("source_url")

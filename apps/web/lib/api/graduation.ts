@@ -50,13 +50,21 @@ export interface SecondMajorRequirements extends MajorRequirementView {
 export interface CommonLiberalArts {
   basicRequired: number;
   basicEarned: number;
+  basicCourses: string[];
   coreRequired: number;
   coreEarned: number;
+  coreCourses: string[];
 }
 
 export interface MinorCredit {
   requiredCredit: number;
   earnedCredit: number;
+}
+
+export interface ForeignLanguageCredits {
+  count: number;
+  totalCredit: number;
+  courses: string[];
 }
 
 export interface GraduationResult {
@@ -67,6 +75,7 @@ export interface GraduationResult {
   creditBreakdown: CreditBreakdownItem[];
   commonLiberalArts: CommonLiberalArts | null;
   minor: MinorCredit | null;
+  foreignLanguageCredits: ForeignLanguageCredits;
   comprehensiveExam: Record<string, unknown> | null;
   substitutionRules: SubstitutionRule[];
   secondMajor: SecondMajorResult | null;

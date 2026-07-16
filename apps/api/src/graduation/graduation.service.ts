@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { CatalogGraduationRequirement, Profile } from '@prisma/client';
+import { courseNameMatchesPattern } from '../common/course-name-match.util';
 import { groupDuplicateCourses } from '../common/retake-grouping.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CATEGORY_KEY_LABEL, resolveCategories } from './category-key-map';
@@ -26,6 +27,7 @@ interface ResolvedCourse {
   credit: number;
   offeringDepartmentName: string | null;
   needsSubstitution: boolean;
+  foreignLanguageType: string | null;
 }
 
 export interface SuggestedCourses {
@@ -105,28 +107,16 @@ export class GraduationService {
       totalCreditMin && totalCreditMin > 0 ? Math.min(Math.round((totalCredits / totalCreditMin) * 100), 100) : null;
 
     const takenNames = new Set(resolvedCourses.map((c) => c.name));
-    const ownDeptNames = await this.getOwnDeptNames(profile);
     const creditBreakdown = await this.buildCreditBreakdownWithSuggestions(
       profile.majorDepartmentId,
       'FIRST',
       requirement,
       resolvedCourses,
       takenNames,
-      ownDeptNames.first,
       profile.programType === 'DOUBLE_MAJOR',
     );
 
-    const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames, ownDeptNames.second);
-
-    const commonReq = getCommonLiberalArtsRequirement(profile.admissionYear, ownDeptNames.first[0] ?? '');
-    const commonLiberalArts = commonReq
-      ? {
-          basicRequired: commonReq.basicRequired,
-          basicEarned: resolvedCourses.filter((c) => c.category === '기초교양필수').reduce((sum, c) => sum + c.credit, 0),
-          coreRequired: commonReq.coreRequired,
-          coreEarned: resolvedCourses.filter((c) => c.category === '중핵교양필수').reduce((sum, c) => sum + c.credit, 0),
-        }
-      : null;
+    const secondMajor = await this.buildSecondMajorResult(profile, resolvedCourses, takenNames);
 
     const minorDept = profile.minorDepartmentId
       ? await this.prisma.department.findUnique({ where: { id: profile.minorDepartmentId } })
@@ -140,9 +130,27 @@ export class GraduationService {
         }
       : null;
 
+    // 외국어강의 이수 학점 — 학과·학번마다 요구 기준이 달라 아직 고정 요건 데이터가 없다.
+    // 요건이 갖춰지기 전까지는 pass/fail 판정 없이 정보성 카운트만 제공한다(이슈 #53).
+    const foreignLanguageCourses = resolvedCourses.filter((c) => !!c.foreignLanguageType);
+    const foreignLanguageCredits = {
+      count: foreignLanguageCourses.length,
+      totalCredit: foreignLanguageCourses.reduce((sum, c) => sum + c.credit, 0),
+      courses: foreignLanguageCourses.map((c) => c.name),
+    };
+
     const extra = await this.getOrCreateExtra(profile.id);
     const catholicChecksCatalog = await this.listApplicableCatholicChecks(profile);
     const checkedMap = (extra.catholicChecks ?? {}) as Record<string, boolean>;
+
+    const majorDeptName = await this.getMajorDepartmentName(profile);
+    const commonLiberalArts = this.buildCommonLiberalArts(
+      profile,
+      resolvedCourses,
+      catholicChecksCatalog,
+      checkedMap,
+      majorDeptName,
+    );
 
     const languageStandard = (requirement.languageScoreStandard ?? {}) as Record<string, number>;
     const languageScorePass =
@@ -158,6 +166,7 @@ export class GraduationService {
       creditBreakdown,
       commonLiberalArts,
       minor,
+      foreignLanguageCredits,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
       secondMajor,
@@ -169,7 +178,7 @@ export class GraduationService {
       catholicChecks: catholicChecksCatalog.map((c) => {
         const autoDetected =
           c.matchPatterns.length > 0 &&
-          resolvedCourses.some((course) => c.matchPatterns.some((pattern) => course.name.includes(pattern)));
+          resolvedCourses.some((course) => c.matchPatterns.some((pattern) => courseNameMatchesPattern(course.name, pattern)));
         const manualOverride = checkedMap[c.key];
         return {
           key: c.key,
@@ -178,6 +187,76 @@ export class GraduationService {
           autoDetected,
         };
       }),
+    };
+  }
+
+  // 기초교양필수/중핵교양선택필수 학점 계산 — 고정 이름이 있는 항목(인간학/키스톤디자인/
+  // 그리스도교사상과문화/사랑나누기/I-DESIGN/Career-DESIGN)은 CatalogCatholicCheck 매칭으로,
+  // 고정 이름이 없는 영역선택 교양(인문사회/자연과학/휴먼테크/글로벌영어 등)은 category 문자열로
+  // 판정한다. 전자를 category로만 판정하면 실제 크롤링 category 표기가 일정하지 않아 놓치는
+  // 경우가 있었다(이슈 #53 — I-DESIGN/Career-DESIGN이 중핵교양 학점에 안 잡히던 문제).
+  private buildCommonLiberalArts(
+    profile: Profile,
+    resolvedCourses: ResolvedCourse[],
+    catholicChecksCatalog: Array<{ key: string; matchPatterns: string[]; credit: number | null; creditGroup: string | null }>,
+    checkedMap: Record<string, boolean>,
+    majorDeptName: string | null,
+  ) {
+    const commonReq = getCommonLiberalArtsRequirement(profile.admissionYear, majorDeptName ?? '');
+    if (!commonReq) return null;
+
+    let basicEarned = 0;
+    let coreEarned = 0;
+    const basicCourses: string[] = [];
+    const coreCourses: string[] = [];
+    const matchedNames = new Set<string>();
+
+    for (const check of catholicChecksCatalog) {
+      if (!check.creditGroup || !check.credit) continue;
+
+      const matches = resolvedCourses.filter((c) =>
+        check.matchPatterns.some((pattern) => courseNameMatchesPattern(c.name, pattern)),
+      );
+      const autoDetected = matches.length > 0;
+      const manualOverride = checkedMap[check.key];
+      const satisfied = manualOverride !== undefined ? manualOverride : autoDetected;
+      if (!satisfied) continue;
+
+      const targetCourses = check.creditGroup === 'BASIC' ? basicCourses : coreCourses;
+      if (matches.length > 0) {
+        for (const m of matches) {
+          matchedNames.add(m.name);
+          targetCourses.push(m.name);
+        }
+        const creditSum = matches.reduce((sum, m) => sum + m.credit, 0);
+        if (check.creditGroup === 'BASIC') basicEarned += creditSum;
+        else coreEarned += creditSum;
+      } else {
+        // 수동으로 체크했지만 자동 매칭되는 과목이 없는 경우 — 과목명 없이 항목의 고정 학점만 인정.
+        if (check.creditGroup === 'BASIC') basicEarned += check.credit;
+        else coreEarned += check.credit;
+      }
+    }
+
+    // 고정 이름이 없는 영역선택 교양 — 이미 위에서 매칭된 과목은 중복 집계하지 않는다.
+    for (const c of resolvedCourses) {
+      if (matchedNames.has(c.name)) continue;
+      if (c.category === '기초교양필수') {
+        basicEarned += c.credit;
+        basicCourses.push(c.name);
+      } else if (c.category === '중핵교양필수') {
+        coreEarned += c.credit;
+        coreCourses.push(c.name);
+      }
+    }
+
+    return {
+      basicRequired: commonReq.basicRequired,
+      basicEarned,
+      basicCourses,
+      coreRequired: commonReq.coreRequired,
+      coreEarned,
+      coreCourses,
     };
   }
 
@@ -199,7 +278,6 @@ export class GraduationService {
     profile: Profile,
     resolvedCourses: ResolvedCourse[],
     takenNames: Set<string>,
-    ownDeptNames: string[],
   ): Promise<MajorResult | null> {
     if (profile.programType !== 'DOUBLE_MAJOR' || !profile.secondMajorDepartmentId) return null;
 
@@ -223,7 +301,6 @@ export class GraduationService {
       requirement,
       resolvedCourses,
       takenNames,
-      ownDeptNames,
       true,
     );
 
@@ -237,20 +314,11 @@ export class GraduationService {
     };
   }
 
-  // 슬롯별로 분리해서 반환한다 — 중핵교양필수 재분류(calculateCreditBreakdown)를 제1/2전공
-  // 각각의 breakdown에 적용할 때, 상대 학과가 개설한 과목까지 "본인 전공"으로 잘못 세지 않기 위함
-  // (CodeRabbit 리뷰 지적 — 이전엔 두 학과 이름을 합쳐서 양쪽 계산에 그대로 재사용했음).
-  private async getOwnDeptNames(profile: Profile): Promise<{ first: string[]; second: string[] }> {
-    const [majorDept, secondMajorDept] = await Promise.all([
-      this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } }),
-      profile.secondMajorDepartmentId
-        ? this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
-        : Promise.resolve(null),
-    ]);
-    return {
-      first: majorDept ? [majorDept.name] : [],
-      second: secondMajorDept ? [secondMajorDept.name] : [],
-    };
+  // commonLiberalArts(기초/중핵교양 공통표) 조회는 학번뿐 아니라 제1전공 학과명도 키로 쓴다
+  // (글로벌경영학과/약학과 예외 — common-liberal-arts.ts 참고).
+  private async getMajorDepartmentName(profile: Profile): Promise<string | null> {
+    const majorDept = await this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } });
+    return majorDept?.name ?? null;
   }
 
   private async buildCreditBreakdownWithSuggestions(
@@ -259,10 +327,9 @@ export class GraduationService {
     requirement: CatalogGraduationRequirement,
     courses: ResolvedCourse[],
     takenNames: Set<string>,
-    ownDeptNames: string[],
     preferDoubleMajorMin: boolean,
   ): Promise<CreditBreakdownItem[]> {
-    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, ownDeptNames, preferDoubleMajorMin);
+    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, preferDoubleMajorMin);
     const suggestions = await this.suggestCourses(departmentId, slot, creditBreakdown, takenNames);
     return creditBreakdown.map((item) =>
       item.status === 'fail' ? { ...item, suggestedCourses: suggestions[item.key] ?? null } : item,
@@ -377,7 +444,11 @@ export class GraduationService {
       where: { universityId: profile.universityId },
       orderBy: { id: 'asc' }, // 학년 순서(id 배정 순서)대로 노출
     });
-    return all.filter((c) => c.admissionYearFrom === null || c.admissionYearFrom <= profile.admissionYear);
+    return all.filter(
+      (c) =>
+        (c.admissionYearFrom === null || c.admissionYearFrom <= profile.admissionYear) &&
+        (c.admissionYearTo === null || c.admissionYearTo >= profile.admissionYear),
+    );
   }
 
   // 재수강(retakeGroups) + 대체인정(substitution) 반영 완료 상태의 과목 목록을 반환한다.
@@ -415,6 +486,7 @@ export class GraduationService {
         // 요람 코드도 대체인정도 없지만 사용자가 이수구분을 직접 지정한 과목(공유대학 등 요람에
         // 아예 없는 과목)은 그 지정을 신뢰하고 계산을 막지 않는다.
         needsSubstitution: !c.code && !c.substitution && !c.category,
+        foreignLanguageType: c.foreignLanguageType,
       }));
   }
 
@@ -422,7 +494,6 @@ export class GraduationService {
     requirement: CatalogGraduationRequirement,
     courses: ResolvedCourse[],
     slot: MajorSlot,
-    ownDeptNames: string[],
     preferDoubleMajorMin: boolean,
   ): CreditBreakdownItem[] {
     const breakdown = (requirement.creditBreakdown ?? {}) as Record<string, number>;
@@ -457,17 +528,9 @@ export class GraduationService {
         const earnedCourses: string[] = [];
         for (const c of courses) {
           if (!c.category) continue;
-          // 중핵교양필수를 본인 전공(제1/2전공) 학과가 개설한 경우 전공학점으로 인정되는 경우가 있어
-          // (사용자 확인) major 쪽으로 재분류하고 generalCore에선 제외한다.
-          const isGeneralCoreOwnMajor =
-            c.category === '중핵교양필수' && !!c.offeringDepartmentName && ownDeptNames.includes(c.offeringDepartmentName);
-
-          if ((key === 'major' || key === 'majorDeepMin' || key === 'doubleMajorMin') && isGeneralCoreOwnMajor) {
-            earned += c.credit;
-            earnedCourses.push(c.name);
-            continue;
-          }
-          if (key === 'generalCore' && isGeneralCoreOwnMajor) continue;
+          // 중핵교양필수/전공기초는 본인 전공 학과가 개설했더라도 전공선택 학점(major 등)에 포함되지
+          // 않는다(사용자 정정 — 이슈 #53. 예전엔 본인 학과 개설 중핵교양을 전공으로 재분류했었으나
+          // 실제 학칙상 별도 카테고리로, 전공 이수학점 계산에 합산되지 않는다는 걸 재확인함).
           if (categories.includes(c.category)) {
             earned += c.credit;
             earnedCourses.push(c.name);

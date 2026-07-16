@@ -69,18 +69,14 @@ export function CourseReviewRow({
             ✓ {course.substitutionName}
           </div>
         )}
-        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#DCE7FB] bg-[#F5F8FF] px-3 py-2 text-xs font-bold text-brand-blue">
-          <input
-            type="checkbox"
-            checked={!!course.foreignLanguageType}
-            onChange={(e) => onToggleForeignLanguage(course.id, e.target.checked)}
-            className="h-3.5 w-3.5 accent-brand-blue"
-          />
-          🌐 외국어강의
-          {course.foreignLanguageType && course.foreignLanguageType !== MANUAL_FOREIGN_LANGUAGE_LABEL && (
-            <span className="text-[10px] font-normal text-brand-text-muted">(자동감지)</span>
-          )}
-        </label>
+        {course.foreignLanguageType && (
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#EFF6FF] px-[9px] py-1 text-[11px] font-bold text-brand-blue">
+            🌐 외국어강의
+            {course.foreignLanguageType !== MANUAL_FOREIGN_LANGUAGE_LABEL && (
+              <span className="ml-1 font-normal text-brand-text-muted">(자동감지)</span>
+            )}
+          </span>
+        )}
         {(course.crossMajorEligible || course.crossMajorRecognized) && (
           <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#D6EEDD] bg-[#F2FBF5] px-3 py-2 text-xs font-bold text-brand-success">
             <input
@@ -96,11 +92,20 @@ export function CourseReviewRow({
           onClick={() => setOpen((v) => !v)}
           className="whitespace-nowrap rounded-[9px] border border-[#DCE7FB] bg-[#F5F8FF] px-3 py-2 text-xs font-bold text-brand-blue"
         >
-          대체인정 설정
+          설정
         </button>
       </div>
       {open && (
         <>
+          <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#DCE7FB] bg-[#F5F8FF] px-3 py-2 text-xs font-bold text-brand-blue">
+            <input
+              type="checkbox"
+              checked={!!course.foreignLanguageType}
+              onChange={(e) => onToggleForeignLanguage(course.id, e.target.checked)}
+              className="h-3.5 w-3.5 accent-brand-blue"
+            />
+            🌐 외국어강의로 표시
+          </label>
           <SubstitutionSearch
             onPick={(catalogCourseId) => {
               onSetSubstitution(course.id, catalogCourseId);

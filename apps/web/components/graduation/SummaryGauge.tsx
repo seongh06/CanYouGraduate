@@ -1,4 +1,4 @@
-import type { CommonLiberalArts, CreditBreakdownItem, MinorCredit } from '../../lib/api/graduation';
+import type { CommonLiberalArts, CreditBreakdownItem, ForeignLanguageCredits, MinorCredit } from '../../lib/api/graduation';
 import { Card } from '../ui/Card';
 
 interface SummaryGaugeProps {
@@ -10,6 +10,7 @@ interface SummaryGaugeProps {
   secondMajorCreditBreakdown?: CreditBreakdownItem[];
   commonLiberalArts: CommonLiberalArts | null;
   minor: MinorCredit | null;
+  foreignLanguageCredits: ForeignLanguageCredits;
 }
 
 // 카테고리별 학점 현황 색상 — dataviz 스킬 palette.md 카테고리 팔레트에서 슬롯을 골라 6색 전체
@@ -63,6 +64,7 @@ export function SummaryGauge({
   secondMajorCreditBreakdown,
   commonLiberalArts,
   minor,
+  foreignLanguageCredits,
 }: SummaryGaugeProps) {
   const major1 = findBucket(creditBreakdown, MAJOR_KEYS);
   const major2 = secondMajorCreditBreakdown ? findBucket(secondMajorCreditBreakdown, MAJOR_KEYS) : null;
@@ -139,6 +141,17 @@ export function SummaryGauge({
           {categoryBars.map((bar) => (
             <CategoryBar key={bar.label} {...bar} />
           ))}
+        </div>
+      )}
+
+      {/* 학과·학번마다 요구 기준이 달라 아직 필요 학점 데이터가 없다 — pass/fail 없이 정보성으로만
+          표시한다(이슈 #53). */}
+      {foreignLanguageCredits.count > 0 && (
+        <div className="mt-2.5 flex items-center gap-2.5">
+          <span className="w-[76px] shrink-0 text-xs font-bold text-brand-text">외국어강의</span>
+          <span className="flex-1 text-xs text-brand-text-muted">
+            {foreignLanguageCredits.totalCredit}학점 ({foreignLanguageCredits.count}과목) 이수 · 학과·학번별 기준은 아직 준비되지 않았어요
+          </span>
         </div>
       )}
     </Card>

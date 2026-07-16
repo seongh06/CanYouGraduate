@@ -51,14 +51,14 @@ function EarnedCoursesBlock({ names }: { names: string[] }) {
   );
 }
 
-export function CreditBreakdownList({ items }: { items: CreditBreakdownItem[] }) {
+export function CreditBreakdownList({ items, title = '학점 구성' }: { items: CreditBreakdownItem[]; title?: string }) {
   const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
 
   return (
     <Card className="mb-4">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between">
-        <span className="text-[15px] font-bold">학점 구성</span>
+        <span className="text-[15px] font-bold">{title}</span>
         <span className="text-xs font-bold text-brand-blue">{open ? '접기 ▲' : '펼치기 ▼'}</span>
       </button>
       {open && (
