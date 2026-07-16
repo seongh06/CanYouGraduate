@@ -481,7 +481,10 @@ async function main() {
       cohortLabel: '전체(공통)',
       admissionYearFrom: 2018,
       totalCreditMin: 130,
-      creditBreakdown: { general: 25, generalBasicRequired: 16, generalCore: 9, majorBasic: 15, major: 36 },
+      // general(자유선택교양) 키는 제거 — generalBasicRequired(16)+generalCore(9)=25를 "교양 총계"로 넣으려다
+      // 실제 자유선택교양 과목 학점을 세는 'general' 카테고리로 잘못 매핑된 데이터 버그였음(이슈 #51).
+      // 컴공 졸업요건엔 자유선택교양 자체 학점 기준이 없음 — 기초/중핵을 각각 채우면 충분.
+      creditBreakdown: { generalBasicRequired: 16, generalCore: 9, majorBasic: 15, major: 36 },
       comprehensiveExam: {
         majorRequiredCount: 4,
         doubleMajorRequiredCount: 3,

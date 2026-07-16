@@ -41,6 +41,16 @@ function SuggestedCoursesBlock({ items }: { items: NonNullable<CreditBreakdownIt
   );
 }
 
+function EarnedCoursesBlock({ names }: { names: string[] }) {
+  if (names.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-lg bg-white px-3 py-2.5">
+      <div className="mb-1 text-[11px] font-bold text-brand-text-muted">인정된 과목</div>
+      <div className="text-xs text-brand-text-muted">{names.join(', ')}</div>
+    </div>
+  );
+}
+
 export function CreditBreakdownList({ items }: { items: CreditBreakdownItem[] }) {
   const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
@@ -68,6 +78,9 @@ export function CreditBreakdownList({ items }: { items: CreditBreakdownItem[] })
                 {STATUS_LABEL[item.status]}
               </span>
             </div>
+            {item.status !== 'unavailable' && item.earnedCourses && item.earnedCourses.length > 0 && (
+              <EarnedCoursesBlock names={item.earnedCourses} />
+            )}
             {item.status === 'fail' && item.suggestedCourses && <SuggestedCoursesBlock items={item.suggestedCourses} />}
           </div>
         ))}

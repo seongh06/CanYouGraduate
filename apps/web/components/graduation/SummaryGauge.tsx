@@ -1,4 +1,4 @@
-import type { CreditBreakdownItem } from '../../lib/api/graduation';
+import type { CommonLiberalArts, CreditBreakdownItem, MinorCredit } from '../../lib/api/graduation';
 import { Card } from '../ui/Card';
 
 interface SummaryGaugeProps {
@@ -8,23 +8,28 @@ interface SummaryGaugeProps {
   completionPercent: number | null;
   creditBreakdown: CreditBreakdownItem[];
   secondMajorCreditBreakdown?: CreditBreakdownItem[];
+  commonLiberalArts: CommonLiberalArts | null;
+  minor: MinorCredit | null;
 }
 
-// 카테고리별 학점 현황 색상 — dataviz 스킬 팔레트 검증 통과한 4색(고정 순서, CVD 안전).
+// 카테고리별 학점 현황 색상 — dataviz 스킬 palette.md 카테고리 팔레트에서 슬롯을 골라 6색 전체
+// 조합으로 재검증(validate_palette.js, light/dark 모두 ALL PASS)한 고정 순서. 엔티티마다 색을
+// 고정해서 유지한다(제1/2전공 색은 기존 화면과 동일하게 유지, 전공기초/부전공만 신규 슬롯 추가).
 // 색만으로 구분하지 않도록 각 막대에 항상 라벨 + 수치 텍스트를 같이 보여준다.
 const CATEGORY_COLORS = {
+  basic: '#e87ba4', // 기초교양
+  core: '#eda100', // 중핵교양
+  majorBasic: '#1baf7a', // 전공기초
   major1: '#2a78d6', // 제1전공
   major2: '#008300', // 제2전공
-  liberal: '#e87ba4', // 공통교양
-  core: '#eda100', // 중핵교양
+  minor: '#4a3aa7', // 부전공
 } as const;
 
 // 학과마다 creditBreakdown 키 체계가 다르므로(크롤러 키/영문 레거시 키/프로그램 단위 키), 각
 // 카테고리를 대표할 만한 키를 우선순위대로 찾는다 — 이미 status:'unavailable'인 항목은
 // earned를 신뢰할 수 없어 제외한다(category-key-map.ts 참고).
 const MAJOR_KEYS = ['전공이수학점 계', 'majorDeepMin', 'doubleMajorMin', 'major', '전공선택'];
-const LIBERAL_KEYS = ['교양이수학점 계', '기초필수', 'generalBasicRequired', 'general'];
-const CORE_KEYS = ['중핵교양', 'generalCore'];
+const MAJOR_BASIC_KEYS = ['전공기초', 'majorBasic'];
 
 function findBucket(items: CreditBreakdownItem[], candidateKeys: string[]) {
   for (const key of candidateKeys) {
@@ -56,19 +61,49 @@ export function SummaryGauge({
   completionPercent,
   creditBreakdown,
   secondMajorCreditBreakdown,
+  commonLiberalArts,
+  minor,
 }: SummaryGaugeProps) {
   const major1 = findBucket(creditBreakdown, MAJOR_KEYS);
   const major2 = secondMajorCreditBreakdown ? findBucket(secondMajorCreditBreakdown, MAJOR_KEYS) : null;
-  const liberal = findBucket(creditBreakdown, LIBERAL_KEYS);
-  const core = findBucket(creditBreakdown, CORE_KEYS);
+  const majorBasic1 = findBucket(creditBreakdown, MAJOR_BASIC_KEYS);
+  const majorBasic2 = secondMajorCreditBreakdown ? findBucket(secondMajorCreditBreakdown, MAJOR_BASIC_KEYS) : null;
+  // 전공기초는 제1/2전공 중 기준(required)이 더 높은 쪽 하나만 대표로 보여준다(사용자 확인).
+  const majorBasic =
+    majorBasic1 && majorBasic2 ? (majorBasic1.required >= majorBasic2.required ? majorBasic1 : majorBasic2) : majorBasic1 ?? majorBasic2;
 
   type Bar = { label: string; color: string; earned: number; required: number };
   const categoryBars: Bar[] = (
     [
+      commonLiberalArts &&
+        commonLiberalArts.basicRequired > 0 && {
+          label: '기초교양',
+          color: CATEGORY_COLORS.basic,
+          earned: commonLiberalArts.basicEarned,
+          required: commonLiberalArts.basicRequired,
+        },
+      commonLiberalArts &&
+        commonLiberalArts.coreRequired > 0 && {
+          label: '중핵교양',
+          color: CATEGORY_COLORS.core,
+          earned: commonLiberalArts.coreEarned,
+          required: commonLiberalArts.coreRequired,
+        },
+      majorBasic && {
+        label: '전공기초',
+        color: CATEGORY_COLORS.majorBasic,
+        earned: majorBasic.earned!,
+        required: majorBasic.required,
+      },
       major1 && { label: '제1전공', color: CATEGORY_COLORS.major1, earned: major1.earned!, required: major1.required },
       major2 && { label: '제2전공', color: CATEGORY_COLORS.major2, earned: major2.earned!, required: major2.required },
-      liberal && { label: '공통교양', color: CATEGORY_COLORS.liberal, earned: liberal.earned!, required: liberal.required },
-      core && { label: '중핵교양', color: CATEGORY_COLORS.core, earned: core.earned!, required: core.required },
+      minor &&
+        minor.requiredCredit > 0 && {
+          label: '부전공',
+          color: CATEGORY_COLORS.minor,
+          earned: minor.earnedCredit,
+          required: minor.requiredCredit,
+        },
     ] as Array<Bar | null>
   ).filter((b): b is Bar => !!b);
 

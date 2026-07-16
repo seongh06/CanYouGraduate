@@ -13,6 +13,7 @@ export interface CreditBreakdownItem {
   earned: number | null;
   status: 'pass' | 'fail' | 'unavailable';
   note?: string;
+  earnedCourses?: string[];
   suggestedCourses?: SuggestedCourses | null;
 }
 
@@ -46,12 +47,26 @@ export interface SecondMajorRequirements extends MajorRequirementView {
   creditBreakdownRequired: Record<string, number>;
 }
 
+export interface CommonLiberalArts {
+  basicRequired: number;
+  basicEarned: number;
+  coreRequired: number;
+  coreEarned: number;
+}
+
+export interface MinorCredit {
+  requiredCredit: number;
+  earnedCredit: number;
+}
+
 export interface GraduationResult {
   totalCredits: number;
   totalCreditMin: number | null;
   remainingCredits: number | null;
   completionPercent: number | null;
   creditBreakdown: CreditBreakdownItem[];
+  commonLiberalArts: CommonLiberalArts | null;
+  minor: MinorCredit | null;
   comprehensiveExam: Record<string, unknown> | null;
   substitutionRules: SubstitutionRule[];
   secondMajor: SecondMajorResult | null;

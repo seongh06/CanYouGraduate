@@ -19,6 +19,8 @@ export interface CourseItem {
   isDuplicate: boolean;
   needsSubstitution: boolean;
   substitutionName: string | null;
+  crossMajorRecognized: boolean;
+  crossMajorEligible: boolean;
 }
 
 export function syncEverytime(sessionId: string, url: string) {

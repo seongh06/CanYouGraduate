@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MANUAL_FOREIGN_LANGUAGE_LABEL } from '../../lib/api/courses';
 import type { CourseItem } from '../../lib/api/everytime';
 import { SubstitutionSearch } from './SubstitutionSearch';
 
@@ -19,9 +20,17 @@ interface CourseReviewRowProps {
   course: CourseItem;
   onSetSubstitution: (courseId: number, catalogCourseId: number) => void;
   onManualCategory: (courseId: number, input: { category: string; credit: number }) => void;
+  onToggleForeignLanguage: (courseId: number, checked: boolean) => void;
+  onToggleCrossMajorRecognition: (courseId: number, checked: boolean) => void;
 }
 
-export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }: CourseReviewRowProps) {
+export function CourseReviewRow({
+  course,
+  onSetSubstitution,
+  onManualCategory,
+  onToggleForeignLanguage,
+  onToggleCrossMajorRecognition,
+}: CourseReviewRowProps) {
   // 요람 코드도 대체인정도 없지만 이수구분은 직접 지정된 상태 — 공유대학 등 요람 밖 과목을
   // "직접 입력하기"로 저장하고 나면 이 상태가 된다(needsSubstitution은 false로 바뀜).
   const isManuallyCategorized = !course.code && !course.substitutionName && !!course.category;
@@ -59,6 +68,29 @@ export function CourseReviewRow({ course, onSetSubstitution, onManualCategory }:
           <div className="rounded-full bg-[#E7F6EE] px-3 py-1.5 text-xs font-bold text-brand-success">
             ✓ {course.substitutionName}
           </div>
+        )}
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#DCE7FB] bg-[#F5F8FF] px-3 py-2 text-xs font-bold text-brand-blue">
+          <input
+            type="checkbox"
+            checked={!!course.foreignLanguageType}
+            onChange={(e) => onToggleForeignLanguage(course.id, e.target.checked)}
+            className="h-3.5 w-3.5 accent-brand-blue"
+          />
+          🌐 외국어강의
+          {course.foreignLanguageType && course.foreignLanguageType !== MANUAL_FOREIGN_LANGUAGE_LABEL && (
+            <span className="text-[10px] font-normal text-brand-text-muted">(자동감지)</span>
+          )}
+        </label>
+        {(course.crossMajorEligible || course.crossMajorRecognized) && (
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[#D6EEDD] bg-[#F2FBF5] px-3 py-2 text-xs font-bold text-brand-success">
+            <input
+              type="checkbox"
+              checked={course.crossMajorRecognized}
+              onChange={(e) => onToggleCrossMajorRecognition(course.id, e.target.checked)}
+              className="h-3.5 w-3.5 accent-brand-success"
+            />
+            🎓 타전공학점 인정 신청
+          </label>
         )}
         <button
           onClick={() => setOpen((v) => !v)}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { CourseList } from '../../../components/calculator/CourseList';
 import { FilteredSchedulePanel } from '../../../components/calculator/FilteredSchedulePanel';
@@ -71,7 +72,7 @@ export default function TimetablePage() {
       <SyncCard synced={semesters.length > 0} syncing={syncing} onSyncStart={() => setSyncing(true)} />
 
       {semesters.length > 0 && (
-        <div className="flex flex-col gap-3.5 sm:grid sm:grid-cols-[220px_1fr] sm:items-start sm:gap-5">
+        <div className="flex flex-col gap-3.5 pb-24 sm:grid sm:grid-cols-[220px_1fr] sm:items-start sm:gap-5">
           <SemesterList
             semesters={semesters}
             selectedSemesterId={selectedSemesterId}
@@ -86,6 +87,17 @@ export default function TimetablePage() {
               onDelete={(id) => deleteMutation.mutate(id)}
             />
           </div>
+        </div>
+      )}
+
+      {semesters.length > 0 && (
+        <div className="fixed inset-x-0 bottom-7 flex justify-center px-4">
+          <Link
+            href="/verify"
+            className="rounded-full bg-brand-blue px-9 py-4 text-[15px] font-extrabold text-white shadow-[0_10px_24px_rgba(49,130,246,0.35)]"
+          >
+            검증 & 설정으로 이동 →
+          </Link>
         </div>
       )}
     </>

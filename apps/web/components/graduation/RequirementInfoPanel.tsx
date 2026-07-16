@@ -75,7 +75,9 @@ export function RequirementInfoPanel({ comprehensiveExam, substitutionRules }: R
 
       {substitutionRules.length > 0 && (
         <div className="flex flex-col gap-2">
-          <div className="text-xs font-bold text-brand-text-muted">다음 중 하나만 충족하면 돼요</div>
+          {/* 학과마다 규정 구조가 달라(컴공형: 성적 등급별 N과목 면제가 누적/컴공형, 미콘형: 항목별
+              개별 필수 요건) "하나만 충족하면 돼요" 같은 획일적 안내를 달 수 없다 — 각 항목의
+              condition 원문과 waives(있는 경우만 "N과목 면제")로만 설명한다(이슈 #51). */}
           {substitutionRules.map((rule, i) => (
             <div key={i} className="rounded-xl border border-brand-border px-3.5 py-3 text-[13px]">
               <span
