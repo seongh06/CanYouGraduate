@@ -165,6 +165,12 @@ model Course {
   // 타전공학점인정 제도(CrossMajorCreditRecognition) 신청 여부 — 검증 화면에서 사용자가 직접 토글.
   // true면 graduation 계산에서 이 과목의 category를 전공(제1전공선택 상당)으로 취급한다(이슈 #51).
   crossMajorRecognized        Boolean      @default(false) @map("cross_major_recognized")
+  // 요일/교시 그리드가 아니라 별도 목록(.nontimes)에 나오는 온라인 강의(Self-Making Job 등) — STEP1
+  // 화면에서 타임테이블 최하단 별도 섹션에 표시한다(이슈 #53).
+  isOnline                    Boolean      @default(false) @map("is_online")
+  // 강의실 칸에 "공유대학"이 그대로 찍혀 나오는 타 대학 학점교류 과목 — 요람에 없어 매칭 실패가
+  // 예정된 과목임을 검증 화면에서 미리 알려준다(이슈 #53).
+  isSharedUniversity          Boolean      @default(false) @map("is_shared_university")
 
   semester     Semester       @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   // 대체인정 연결된 요람 과목이 삭제되어도 수강기록 자체는 남기고 연결만 해제한다.
@@ -337,8 +343,14 @@ model CatalogCatholicCheck {
   // 사용자가 명시적으로 남긴 값이 항상 우선한다.
   matchPatterns String[] @default([]) @map("match_patterns")
   credit        Int?
+  // 기초교양필수/중핵교양선택필수 중 어느 쪽 합계에 잡히는 항목인지(SummaryGauge 공통교양 카드
+  // 계산용). null이면 학점 집계 대상이 아닌 정보성 체크(예: 학점 미확정 항목).
+  creditGroup String? @map("credit_group") // 'BASIC' | 'CORE'
   // null=전체 학번 적용. I-DESIGN/Career-DESIGN처럼 특정 학번부터 신설된 항목에만 사용.
   admissionYearFrom Int?                  @map("admission_year_from")
+  // null=이후 학번도 계속 적용. 키스톤디자인처럼 특정 학번부터 항목 구성 자체가 바뀌는 경우
+  // (2024학번부터 인문창의/창의설계 2과목 → 단일 3학점 과목) 이전 항목의 상한을 명시하는 데 쓴다.
+  admissionYearTo   Int?                  @map("admission_year_to")
   dataSource        RequirementDataSource @default(PAGE_DIRECT) @map("data_source")
   verified          Boolean               @default(true)
   sourceUrl         String?               @map("source_url")

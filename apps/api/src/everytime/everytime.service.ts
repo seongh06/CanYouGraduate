@@ -41,6 +41,8 @@ interface CourseInput {
   credit: number;
   offeringDepartmentName: string | null;
   foreignLanguageType: string | null;
+  isOnline: boolean;
+  isSharedUniversity: boolean;
 }
 
 type CourseSourceValue = 'CRAWL' | 'TEXT_PASTE' | 'MANUAL';
@@ -108,6 +110,8 @@ export class EverytimeService {
         credit: 0,
         offeringDepartmentName: null,
         foreignLanguageType: null,
+        isOnline: c.isOnline,
+        isSharedUniversity: c.isSharedUniversity,
       }));
     }
 
@@ -134,6 +138,8 @@ export class EverytimeService {
           credit: 0,
           offeringDepartmentName: null,
           foreignLanguageType: null,
+          isOnline: c.isOnline,
+          isSharedUniversity: c.isSharedUniversity,
         };
       }
 
@@ -146,6 +152,8 @@ export class EverytimeService {
         credit: matched.credit,
         offeringDepartmentName: matched.departmentName,
         foreignLanguageType: matched.foreignLanguageType,
+        isOnline: c.isOnline,
+        isSharedUniversity: c.isSharedUniversity,
       };
     });
   }
@@ -188,6 +196,8 @@ export class EverytimeService {
       category: null,
       offeringDepartmentName: null,
       foreignLanguageType: null,
+      isOnline: false,
+      isSharedUniversity: false,
     }));
     const semester = await this.upsertSemesterWithCourses(profile.id, semesterLabel.trim(), courseInputs, 'TEXT_PASTE', false);
     await this.prisma.profile.update({ where: { id: profile.id }, data: { syncedAt: new Date() } });
@@ -199,7 +209,7 @@ export class EverytimeService {
     const semesters = await this.prisma.semester.findMany({
       where: { profileId: profile.id },
       orderBy: { sortOrder: 'asc' },
-      include: { courses: { where: { general: false } } },
+      include: { courses: true },
     });
 
     // sortOrder는 "크롤링 방문 순서"라 실제 학기 순서와 다를 수 있다 — 크롤러가 시작 URL의 학기를
@@ -218,13 +228,16 @@ export class EverytimeService {
       return a.semester.sortOrder - b.semester.sortOrder;
     });
 
+    // 아예 비어있는(과목이 하나도 크롤링되지 않은) 학기는 혼란만 주므로 목록에서 제외한다(이슈 #53).
     return {
-      semesters: withRank.map(({ semester: s }) => ({
-        id: s.id,
-        label: s.label,
-        active: s.active,
-        courseCount: s.courses.length,
-      })),
+      semesters: withRank
+        .filter(({ semester: s }) => s.courses.length > 0)
+        .map(({ semester: s }) => ({
+          id: s.id,
+          label: s.label,
+          active: s.active,
+          courseCount: s.courses.filter((c) => !c.general).length,
+        })),
     };
   }
 
@@ -280,6 +293,8 @@ export class EverytimeService {
         general: c.general,
         foreignLanguageType: c.foreignLanguageType,
         offeringDepartmentName: c.offeringDepartmentName,
+        isOnline: c.isOnline,
+        isSharedUniversity: c.isSharedUniversity,
         isDuplicate: (nameCounts.get(c.name) ?? 0) > 1,
         // 요람 코드도 대체인정도 없지만 이수구분이 직접 지정된 과목(공유대학 등 요람 밖 과목을
         // "직접 입력하기"로 저장한 경우)은 더 이상 대체인정 대상으로 표시하지 않는다
@@ -312,6 +327,8 @@ export class EverytimeService {
           credit: c.credit,
           offeringDepartmentName: c.offeringDepartmentName,
           foreignLanguageType: c.foreignLanguageType,
+          isOnline: c.isOnline,
+          isSharedUniversity: c.isSharedUniversity,
           // general은 "교양 포함 여부"가 아니라 "실제 수업이 아닌 커스텀 일정(학생회 회의 등)인지" 여부다 —
           // 교양 과목도 진짜 수업이라 general: false로 메인 목록에 남아야 한다. FEAT#19 이후 실제 개설강좌와
           // 매칭되면 교양 과목도 code가 채워지므로, 매칭 실패(=code 없음)만으로 커스텀 일정을 가려낸다.

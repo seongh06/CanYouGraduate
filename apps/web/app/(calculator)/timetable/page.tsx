@@ -80,12 +80,27 @@ export default function TimetablePage() {
             onDelete={(id) => deleteSemesterMutation.mutate(id)}
           />
           <div className="min-w-0">
-            <CourseList semesterLabel={currentSemester?.label ?? ''} courses={courses} />
+            <CourseList semesterLabel={currentSemester?.label ?? ''} courses={courses.filter((c) => !c.isOnline)} />
             <FilteredSchedulePanel
               courses={courses}
               onAddBack={(id, input) => addBackMutation.mutate({ courseId: id, ...input })}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
+            {courses.some((c) => c.isOnline) && (
+              <div className="mt-3.5 rounded-card border border-brand-border bg-white p-3.5">
+                <div className="mb-2.5 text-[13px] font-extrabold text-brand-text-muted">
+                  온라인 강의 (분반/시간표 없음)
+                </div>
+                {courses
+                  .filter((c) => c.isOnline)
+                  .map((c) => (
+                    <div key={c.id} className="flex items-center justify-between border-b border-brand-bg py-2 last:border-b-0">
+                      <span className="text-sm font-bold">{c.name}</span>
+                      <span className="text-sm font-extrabold">{c.credit}학점</span>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
       )}

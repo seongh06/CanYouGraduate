@@ -29,11 +29,6 @@ export function SemesterList({ semesters, selectedSemesterId, onSelect, onDelete
           >
             <span>{sem.label}</span>
             <span className="flex items-center gap-1.5">
-              {sem.active && (
-                <span className="rounded-full bg-[#E8F1FF] px-[7px] py-0.5 text-[10px] font-extrabold text-brand-blue">
-                  Active
-                </span>
-              )}
               <button
                 type="button"
                 aria-label={`${sem.label} 삭제`}

@@ -11,6 +11,7 @@ import {
   updateLanguageScore,
   updateThesis,
 } from '../../../lib/api/graduation';
+import type { CreditBreakdownItem } from '../../../lib/api/graduation';
 import { getProfile, updateProfile } from '../../../lib/api/profile';
 import { useSession } from '../../../lib/session';
 import { CatholicChecklist } from '../../../components/graduation/CatholicChecklist';
@@ -117,6 +118,31 @@ export default function ResultPage() {
   const hasSecondMajor = !!data.secondMajor;
   const activeMajor = tab === 'SECOND' && data.secondMajor ? data.secondMajor : null;
 
+  // 기초/중핵교양(공통 요건)을 학점구성과 동일한 형태·위치(졸업학점현황 바로 아래)로 보여준다
+  // (이슈 #53) — 어떤 과목으로 인정받았는지도 CreditBreakdownList의 기존 펼치기 UI를 재사용.
+  const commonLiberalArtsItems: CreditBreakdownItem[] = data.commonLiberalArts
+    ? (
+        [
+          data.commonLiberalArts.basicRequired > 0 && {
+            key: 'commonBasic',
+            label: '기초교양',
+            required: data.commonLiberalArts.basicRequired,
+            earned: data.commonLiberalArts.basicEarned,
+            earnedCourses: data.commonLiberalArts.basicCourses,
+            status: data.commonLiberalArts.basicEarned >= data.commonLiberalArts.basicRequired ? 'pass' : 'fail',
+          },
+          data.commonLiberalArts.coreRequired > 0 && {
+            key: 'commonCore',
+            label: '중핵교양',
+            required: data.commonLiberalArts.coreRequired,
+            earned: data.commonLiberalArts.coreEarned,
+            earnedCourses: data.commonLiberalArts.coreCourses,
+            status: data.commonLiberalArts.coreEarned >= data.commonLiberalArts.coreRequired ? 'pass' : 'fail',
+          },
+        ] as Array<CreditBreakdownItem | false>
+      ).filter((item): item is CreditBreakdownItem => !!item)
+    : [];
+
   return (
     <div className="pb-10">
       <SummaryGauge
@@ -128,7 +154,11 @@ export default function ResultPage() {
         secondMajorCreditBreakdown={data.secondMajor?.creditBreakdown}
         commonLiberalArts={data.commonLiberalArts}
         minor={data.minor}
+        foreignLanguageCredits={data.foreignLanguageCredits}
       />
+
+      <CreditBreakdownList items={commonLiberalArtsItems} title="공통 교양(기초·중핵)" />
+      <CatholicChecklist checks={data.catholicChecks} onToggle={(key, checked) => checkMutation.mutate({ key, checked })} />
 
       {profileQuery.data && (
         <TrackPreviewSelector
@@ -200,10 +230,6 @@ export default function ResultPage() {
         showThesisSection={false}
         onSubmitLanguageScore={(examType, score) => languageMutation.mutate({ examType, score })}
         onToggleThesis={(pass) => thesisMutation.mutate(pass)}
-      />
-      <CatholicChecklist
-        checks={data.catholicChecks}
-        onToggle={(key, checked) => checkMutation.mutate({ key, checked })}
       />
     </div>
   );
