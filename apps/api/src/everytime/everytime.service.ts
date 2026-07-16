@@ -21,7 +21,15 @@ const SECOND_MAJOR_CATEGORY_REMAP: Record<string, string> = {
   제1전공필수: '제2전공필수',
 };
 
-// 제1/2전공 어디에도 속하지 않는 학과가 개설한 과목은 원본이 "필수"였어도 이 학생에게는
+// 부전공 학과가 개설한 과목도 "제1전공선택"으로 잘못 표시되던 문제 — 부전공 학과와 일치하면
+// "부전공"으로 표시한다(사용자 확인, 이슈 #53 후속). 부전공은 필수/선택 구분 없이 21학점 총량만
+// 보므로(MINOR_REQUIRED_CREDIT) 단일 라벨로 통일한다.
+const MINOR_CATEGORY_REMAP: Record<string, string> = {
+  제1전공선택: '부전공',
+  제1전공필수: '부전공',
+};
+
+// 제1/2전공/부전공 어디에도 속하지 않는 학과가 개설한 과목은 원본이 "필수"였어도 이 학생에게는
 // 필수일 수가 없다(그 학과 자신의 커리큘럼상 필수라는 뜻이지 이 학생의 전공 요건이 아님) —
 // 선택/필수 구분 없이 전부 "타전공선택"으로 통일한다.
 const OTHER_MAJOR_CATEGORY_REMAP: Record<string, string> = {
@@ -121,10 +129,13 @@ export class EverytimeService {
       parsedLabel.term,
       courses,
     );
-    const [majorDept, secondMajorDept] = await Promise.all([
+    const [majorDept, secondMajorDept, minorDept] = await Promise.all([
       this.prisma.department.findUnique({ where: { id: profile.majorDepartmentId } }),
       profile.secondMajorDepartmentId
         ? this.prisma.department.findUnique({ where: { id: profile.secondMajorDepartmentId } })
+        : Promise.resolve(null),
+      profile.minorDepartmentId
+        ? this.prisma.department.findUnique({ where: { id: profile.minorDepartmentId } })
         : Promise.resolve(null),
     ]);
 
@@ -143,7 +154,13 @@ export class EverytimeService {
         };
       }
 
-      const category = this.reclassifyCategory(matched.category, matched.departmentName, majorDept?.name ?? null, secondMajorDept?.name ?? null);
+      const category = this.reclassifyCategory(
+        matched.category,
+        matched.departmentName,
+        majorDept?.name ?? null,
+        secondMajorDept?.name ?? null,
+        minorDept?.name ?? null,
+      );
 
       return {
         name: c.name,
@@ -171,10 +188,12 @@ export class EverytimeService {
     offeringDepartmentName: string,
     majorDeptName: string | null,
     secondMajorDeptName: string | null,
+    minorDeptName: string | null,
   ): string {
     if (!OWN_MAJOR_CATEGORIES.has(category)) return category;
     if (offeringDepartmentName === majorDeptName) return category;
     if (offeringDepartmentName === secondMajorDeptName) return SECOND_MAJOR_CATEGORY_REMAP[category] ?? category;
+    if (offeringDepartmentName === minorDeptName) return MINOR_CATEGORY_REMAP[category] ?? category;
     return OTHER_MAJOR_CATEGORY_REMAP[category] ?? category;
   }
 
@@ -332,7 +351,9 @@ export class EverytimeService {
           // general은 "교양 포함 여부"가 아니라 "실제 수업이 아닌 커스텀 일정(학생회 회의 등)인지" 여부다 —
           // 교양 과목도 진짜 수업이라 general: false로 메인 목록에 남아야 한다. FEAT#19 이후 실제 개설강좌와
           // 매칭되면 교양 과목도 code가 채워지므로, 매칭 실패(=code 없음)만으로 커스텀 일정을 가려낸다.
-          general: !c.code,
+          // 공유대학/온라인강의는 크롤링 시점에 이미 실제 수업임이 확인됐으므로(code 매칭 실패해도)
+          // 커스텀 일정으로 걸러지면 안 된다(이슈 #53 후속 — 직접 입력해도 일반 일정 취급되던 문제).
+          general: !c.code && !c.isSharedUniversity && !c.isOnline,
           source,
         })),
       });
