@@ -7,14 +7,12 @@ import { ApiError } from '../../../lib/api/client';
 import {
   calculateGraduation,
   getGraduationRequirements,
-  updateCatholicCheck,
   updateLanguageScore,
   updateThesis,
 } from '../../../lib/api/graduation';
 import type { CreditBreakdownItem } from '../../../lib/api/graduation';
 import { getProfile, updateProfile } from '../../../lib/api/profile';
 import { useSession } from '../../../lib/session';
-import { CatholicChecklist } from '../../../components/graduation/CatholicChecklist';
 import { CreditBreakdownList } from '../../../components/graduation/CreditBreakdownList';
 import { LanguageAndThesisCard } from '../../../components/graduation/LanguageAndThesisCard';
 import { RequirementInfoPanel } from '../../../components/graduation/RequirementInfoPanel';
@@ -66,11 +64,6 @@ export default function ResultPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['graduation', 'calculate', sessionId] });
 
-  const checkMutation = useMutation({
-    mutationFn: ({ key, checked }: { key: string; checked: boolean }) =>
-      updateCatholicCheck(sessionId as string, key, checked),
-    onSuccess: invalidate,
-  });
   const languageMutation = useMutation({
     mutationFn: ({ examType, score }: { examType: string; score: number }) =>
       updateLanguageScore(sessionId as string, examType, score),
@@ -158,7 +151,6 @@ export default function ResultPage() {
       />
 
       <CreditBreakdownList items={commonLiberalArtsItems} title="공통 교양(기초·중핵)" />
-      <CatholicChecklist checks={data.catholicChecks} onToggle={(key, checked) => checkMutation.mutate({ key, checked })} />
 
       {profileQuery.data && (
         <TrackPreviewSelector

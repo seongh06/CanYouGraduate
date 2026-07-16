@@ -78,9 +78,7 @@ export function CreditBreakdownList({ items, title = '학점 구성' }: { items:
                 {STATUS_LABEL[item.status]}
               </span>
             </div>
-            {item.status !== 'unavailable' && item.earnedCourses && item.earnedCourses.length > 0 && (
-              <EarnedCoursesBlock names={item.earnedCourses} />
-            )}
+            {item.earnedCourses && item.earnedCourses.length > 0 && <EarnedCoursesBlock names={item.earnedCourses} />}
             {item.status === 'fail' && item.suggestedCourses && <SuggestedCoursesBlock items={item.suggestedCourses} />}
           </div>
         ))}

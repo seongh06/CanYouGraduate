@@ -47,7 +47,7 @@ export type CreditBreakdownItem =
       earnedCourses: string[];
       suggestedCourses?: SuggestedCourses | null;
     }
-  | { key: string; label: string; required: number; earned: null; status: 'unavailable'; note: string };
+  | { key: string; label: string; required: number; earned: null; status: 'unavailable'; note: string; earnedCourses?: string[] };
 
 type MajorSlot = 'FIRST' | 'SECOND';
 
@@ -331,9 +331,28 @@ export class GraduationService {
   ): Promise<CreditBreakdownItem[]> {
     const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, preferDoubleMajorMin);
     const suggestions = await this.suggestCourses(departmentId, slot, creditBreakdown, takenNames);
-    return creditBreakdown.map((item) =>
+    const withSuggestions = creditBreakdown.map((item) =>
       item.status === 'fail' ? { ...item, suggestedCourses: suggestions[item.key] ?? null } : item,
     );
+
+    // 이 전공(슬롯) 소속 과목 중 외국어강의 정보성 표시 — 학과·학번별 필요 학점 기준이 없어
+    // pass/fail 판정 없이 몇 과목·몇 학점인지, 어떤 과목인지만 보여준다(사용자 요청, 이슈 #53 후속).
+    const ownMajorCategories = slot === 'FIRST' ? ['제1전공선택', '제1전공필수'] : ['제2전공선택', '제2전공필수'];
+    const foreignLanguageCourses = courses.filter(
+      (c) => c.category && ownMajorCategories.includes(c.category) && !!c.foreignLanguageType,
+    );
+    if (foreignLanguageCourses.length === 0) return withSuggestions;
+
+    const foreignLanguageItem: CreditBreakdownItem = {
+      key: 'foreignLanguage',
+      label: '외국어강의',
+      required: 0,
+      earned: null,
+      status: 'unavailable',
+      note: `${foreignLanguageCourses.reduce((sum, c) => sum + c.credit, 0)}학점(${foreignLanguageCourses.length}과목) 이수 — 학과·학번별 기준 정보 없음`,
+      earnedCourses: foreignLanguageCourses.map((c) => c.name),
+    };
+    return [...withSuggestions, foreignLanguageItem];
   }
 
   async updateCheck(profile: Profile, checkKey: string, checked: unknown) {
