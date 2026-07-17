@@ -171,7 +171,7 @@ export class GraduationService {
       foreignLanguageCredits,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
-      mandatoryRequirements: requirement.mandatoryRequirements,
+      mandatoryRequirements: requirement.mandatoryRequirements ?? [],
       secondMajor,
       languageScore: extra.languageScore,
       languageExamType: extra.languageExamType,
@@ -269,7 +269,7 @@ export class GraduationService {
       creditBreakdownRequired: requirement.creditBreakdown ?? {},
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
-      mandatoryRequirements: requirement.mandatoryRequirements,
+      mandatoryRequirements: requirement.mandatoryRequirements ?? [],
       languageScoreStandard: requirement.languageScoreStandard,
       thesisOptional: requirement.thesisOptional,
     };
@@ -314,7 +314,7 @@ export class GraduationService {
       creditBreakdown,
       comprehensiveExam: requirement.comprehensiveExam,
       substitutionRules: requirement.substitutionRules,
-      mandatoryRequirements: requirement.mandatoryRequirements,
+      mandatoryRequirements: requirement.mandatoryRequirements ?? [],
       languageScoreStandard: requirement.languageScoreStandard,
       thesisOptional: requirement.thesisOptional,
     };
