@@ -1,0 +1,78 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { chromium } from 'playwright';
+import { CrawledCourse, parseTimetableHtml } from './everytime-html-parser';
+
+export interface CrawledSemesterResult {
+  label: string;
+  sourceUrl: string;
+  courses: CrawledCourse[];
+}
+
+export class EverytimeBlockedError extends Error {}
+export class EverytimeParseFailedError extends Error {}
+
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+const BETWEEN_REQUEST_DELAY_MS = 1500;
+const MAX_SEMESTERS = 12;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+@Injectable()
+export class EverytimeCrawlerService {
+  private readonly logger = new Logger(EverytimeCrawlerService.name);
+
+  async crawlAllSemesters(startUrl: string): Promise<CrawledSemesterResult[]> {
+    // 프로덕션(Alpine)에선 Playwright가 기본으로 받는 glibc 빌드 Chromium이 musl libc와
+    // 호환되지 않아 실행 자체가 안 된다(Docker로 재현 확인) — apk로 설치한 시스템 Chromium을
+    // PLAYWRIGHT_CHROMIUM_PATH로 대신 가리킨다. 로컬 개발(Windows/macOS)에선 미설정 상태로
+    // 두면 Playwright가 원래 받은 브라우저를 그대로 쓴다.
+    const browser = await chromium.launch({
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+      args: ['--no-sandbox'],
+    });
+    try {
+      const context = await browser.newContext({ userAgent: USER_AGENT });
+      const page = await context.newPage();
+
+      const first = await this.fetchAndParse(page, startUrl);
+      if (first.courses.length === 0 && first.semesterLinks.length === 0) {
+        throw new EverytimeParseFailedError('시간표를 불러올 수 없습니다. 비공개 설정이거나 페이지 구조를 인식하지 못했습니다.');
+      }
+
+      const results: CrawledSemesterResult[] = [
+        { label: first.semesterLabel ?? '현재 학기', sourceUrl: startUrl, courses: first.courses },
+      ];
+
+      // semesterLinks엔 지금 보고 있는 학기 자신의 링크도 포함되어 있어 중복 방문을 막기 위해 제외
+      const remainingLinks = first.semesterLinks.filter((link) => link.url !== startUrl).slice(0, MAX_SEMESTERS - 1);
+      for (const link of remainingLinks) {
+        await sleep(BETWEEN_REQUEST_DELAY_MS);
+        try {
+          const parsed = await this.fetchAndParse(page, link.url);
+          results.push({ label: link.label, sourceUrl: link.url, courses: parsed.courses });
+        } catch (error) {
+          this.logger.warn(`과거 학기 크롤링 실패, 건너뜀: ${link.url} — ${(error as Error).message}`);
+        }
+      }
+
+      return results;
+    } finally {
+      await browser.close();
+    }
+  }
+
+  private async fetchAndParse(page: import('playwright').Page, url: string) {
+    const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 }).catch(() => null);
+    if (!response) {
+      throw new EverytimeBlockedError('에브리타임 페이지에 접근할 수 없습니다.');
+    }
+    if (response.status() === 429 || response.status() === 403) {
+      throw new EverytimeBlockedError('일시적으로 에브리타임 연동이 지연되고 있습니다.');
+    }
+    const html = await page.content();
+    return parseTimetableHtml(html, url);
+  }
+}

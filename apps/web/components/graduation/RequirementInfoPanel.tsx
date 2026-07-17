@@ -1,0 +1,151 @@
+import { Card } from '../ui/Card';
+
+interface SubstitutionRule {
+  type: string;
+  condition: string;
+  waives: number | null;
+  note?: string;
+}
+
+interface MandatoryRequirement {
+  type: string;
+  condition: string;
+  note?: string;
+}
+
+interface RequirementInfoPanelProps {
+  comprehensiveExam: Record<string, unknown> | null;
+  substitutionRules: SubstitutionRule[];
+  mandatoryRequirements: MandatoryRequirement[];
+}
+
+// comprehensiveExam은 학과마다 JSON 형식이 완전히 달라(구현 방식 3.4 참고) 자동 판정하지 않고
+// 원문을 그대로 보여준다 — key를 대충 읽을 수 있는 라벨로 바꿔주는 정도만 처리.
+const FIELD_LABEL: Record<string, string> = {
+  majorRequiredCount: '제1전공 필수 이수 과목 수',
+  doubleMajorRequiredCount: '복수전공 필수 이수 과목 수',
+  requiredAreas: '필수 영역',
+  electiveAreas: '선택 영역',
+  passingRule: '합격 기준',
+  hasExam: '졸업시험 여부',
+  detail: '상세 내용',
+  examSubjects: '시험 과목',
+};
+
+// substitutionRules[]/mandatoryRequirements[].type 영문 코드를 사람이 읽을 라벨/배지 스타일로.
+const RULE_TYPE_LABEL: Record<string, string> = {
+  LANGUAGE: '언어',
+  CERTIFICATE: '자격증',
+  COMPETITION: '대회',
+  THESIS: '논문',
+  OTHER: '기타',
+  ATTENDANCE: '참여',
+  CAPSTONE_REPORT: '캡스톤/졸업작품',
+  CAREER_COUNSELING: '진로상담',
+  COUNSELING: '상담',
+  CREATIVE_WORK: '창작물',
+  FIELD_TRIP: '현장실습',
+  FOREIGN_LANGUAGE_COURSE: '외국어강의',
+  RELIEF_DOUBLE_MAJOR: '복수전공 완화',
+  WORKSHOP: '워크샵',
+};
+
+const RULE_TYPE_STYLE: Record<string, string> = {
+  LANGUAGE: 'bg-[#EAF2FF] text-brand-blue',
+  CERTIFICATE: 'bg-[#F3EAFB] text-[#8B5CF6]',
+  COMPETITION: 'bg-[#FFF3E0] text-[#E08A00]',
+  THESIS: 'bg-[#E7F6EE] text-brand-success',
+  OTHER: 'bg-[#EAECEF] text-brand-text-muted',
+  ATTENDANCE: 'bg-[#EAECEF] text-brand-text-muted',
+  CAPSTONE_REPORT: 'bg-[#E7F6EE] text-brand-success',
+  CAREER_COUNSELING: 'bg-[#EAECEF] text-brand-text-muted',
+  COUNSELING: 'bg-[#EAECEF] text-brand-text-muted',
+  CREATIVE_WORK: 'bg-[#F3EAFB] text-[#8B5CF6]',
+  FIELD_TRIP: 'bg-[#EAECEF] text-brand-text-muted',
+  FOREIGN_LANGUAGE_COURSE: 'bg-[#EAF2FF] text-brand-blue',
+  RELIEF_DOUBLE_MAJOR: 'bg-[#FFF3E0] text-[#E08A00]',
+  WORKSHOP: 'bg-[#EAECEF] text-brand-text-muted',
+};
+
+function formatValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join(', ');
+  return String(value);
+}
+
+export function RequirementInfoPanel({
+  comprehensiveExam,
+  substitutionRules,
+  mandatoryRequirements,
+}: RequirementInfoPanelProps) {
+  // hasExam이 'N'이면 졸업종합시험 자체가 폐지된 상태라, 언제 왜 폐지됐는지 같은 이력성 detail은
+  // 학생 입장에서 의미가 없다 — 그 경우는 comprehensiveExam 블록 자체를 숨긴다.
+  const hasExam = comprehensiveExam?.hasExam;
+  const showComprehensiveExam = !!comprehensiveExam && hasExam !== 'N';
+
+  if (!showComprehensiveExam && substitutionRules.length === 0 && mandatoryRequirements.length === 0) return null;
+
+  return (
+    <Card className="mb-4">
+      <div className="mb-1 text-[15px] font-bold">졸업종합시험 · 대체규정</div>
+      <div className="mb-3 text-xs text-brand-text-muted">
+        학과마다 규정이 달라 자동으로 판정하지 않아요 — 아래 내용을 직접 확인해주세요.
+      </div>
+
+      {showComprehensiveExam && (
+        <div className="mb-3 flex flex-col gap-2 rounded-xl bg-brand-bg px-3.5 py-3">
+          {Object.entries(comprehensiveExam!).map(([key, value]) => (
+            <div key={key} className="text-[13px]">
+              <div className="font-bold">{FIELD_LABEL[key] ?? key}</div>
+              <div className="mt-0.5 text-brand-text-muted">{formatValue(value)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {mandatoryRequirements.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2">
+          <div className="text-xs font-bold text-brand-text-muted">
+            아래 항목은 대체가 아니라 전부 충족해야 하는 필수 조건이에요
+          </div>
+          {mandatoryRequirements.map((rule, i) => (
+            <div key={i} className="rounded-xl border border-brand-border px-3.5 py-3 text-[13px]">
+              <span
+                className={`mr-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  RULE_TYPE_STYLE[rule.type] ?? RULE_TYPE_STYLE.OTHER
+                }`}
+              >
+                {RULE_TYPE_LABEL[rule.type] ?? rule.type}
+              </span>
+              {rule.condition}
+              {rule.note && <div className="mt-1 text-xs text-brand-text-muted">{rule.note}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {substitutionRules.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {/* 학과마다 규정 구조가 달라(컴공형: 성적 등급별 N과목 면제가 누적/컴공형, 미콘형: 항목별
+              개별 필수 요건) "하나만 충족하면 돼요" 같은 획일적 안내를 달 수 없다 — 각 항목의
+              condition 원문과 waives(있는 경우만 "N과목 면제")로만 설명한다(이슈 #51). */}
+          {substitutionRules.map((rule, i) => (
+            <div key={i} className="rounded-xl border border-brand-border px-3.5 py-3 text-[13px]">
+              <span
+                className={`mr-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  RULE_TYPE_STYLE[rule.type] ?? RULE_TYPE_STYLE.OTHER
+                }`}
+              >
+                {RULE_TYPE_LABEL[rule.type] ?? rule.type}
+              </span>
+              {rule.condition}
+              {typeof rule.waives === 'number' && (
+                <span className="text-brand-text-muted"> — {rule.waives}과목 면제</span>
+              )}
+              {rule.note && <div className="mt-1 text-xs text-brand-text-muted">{rule.note}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}

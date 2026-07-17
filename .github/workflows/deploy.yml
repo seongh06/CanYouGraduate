@@ -1,0 +1,38 @@
+name: Deploy to Home Server
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, canyougraduate]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare env file
+        run: |
+          mkdir -p deployment/env
+          cp ~/deploy-secrets/canyougraduate.env deployment/env/.env
+
+      - name: Build images
+        run: |
+          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . build
+
+      - name: Run Prisma migrations
+        run: |
+          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . run --rm -w /repo/apps/api api npx prisma migrate deploy
+
+      - name: Run Prisma seed
+        run: |
+          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . run --rm -w /repo/apps/api api npx prisma db seed
+
+      - name: Restart services
+        run: |
+          docker compose --env-file deployment/env/.env -f docker-compose.prod.yml --project-directory . up -d
+
+      - name: Clean up old images
+        run: docker image prune -f
