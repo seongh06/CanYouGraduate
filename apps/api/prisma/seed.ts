@@ -702,6 +702,7 @@ async function main() {
       departmentId: 102,
       cohortLabel: '2007학번~ (내국인)',
       admissionYearFrom: 2018,
+      dataSource: 'NOT_FOUND',
       comprehensiveExam: {
         hasExam: 'N(Pass/Fail 방식, 응시선택 시에만 시험형태)',
         detail: '선택3(대회입상)에 한해 졸업시험 응시 가능 옵션 있음 — 그 외엔 시험 자체가 없음',
@@ -719,13 +720,15 @@ async function main() {
       thesisOptional: true,
       trackRestrictionNote: '없음',
       sourceUrl: 'https://business.catholic.ac.kr/business/course/academic.do',
-      notes: '졸업최저이수학점은 학번별 상이(학과사무실 확인 필요). 자격증 대체 옵션 없음(2006학번 이전과 다름)',
+      notes:
+        '졸업최저이수학점은 학번별 상이(학과사무실 확인 필요). 자격증 대체 옵션 없음(2006학번 이전과 다름). [재확인 2026-07] creditBreakdown 보강 조사에서도 academic.do 원문에 이수구분별 학점표 자체가 게재되어 있지 않음을 재확인 — 학과사무실 문의가 유일한 경로로 보임.',
     },
     {
       id: 8,
       departmentId: 102,
       cohortLabel: '2007학번~ (외국인)',
       admissionYearFrom: 2018,
+      dataSource: 'NOT_FOUND',
       comprehensiveExam: {
         hasExam: 'Y(선택3 응시 시)',
         detail:
@@ -1025,6 +1028,8 @@ async function main() {
       departmentId: 346,
       cohortLabel: '2025년 8월 졸업 이전 (2007학번부터 적용되던 구제도)',
       admissionYearFrom: 2007,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 15, majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: {
         hasExam: 'Y',
         detail:
@@ -1034,7 +1039,7 @@ async function main() {
       trackRestrictionNote: '정보통신공학 vs 반도체시스템공학 트랙별로 시험과목 세트가 다름(복수전공 시 각 5과목 중 2과목)',
       sourceUrl: 'https://ice.catholic.ac.kr/ice/course/academic.do',
       notes:
-        '종합시험·어학성적 제도는 2025년 8월 졸업자까지만 적용되고 이후 폐지됨(아래 신제도 행 참고). 외국어 강의 이수요건은 별도 존재(2022학번 9학점, 2023학번부터 12학점)',
+        '종합시험·어학성적 제도는 2025년 8월 졸업자까지만 적용되고 이후 폐지됨(아래 신제도 행 참고). 외국어 강의 이수요건은 별도 존재(2022학번 9학점, 2023학번부터 12학점). [재확인 2026-07] creditBreakdown은 academic.do 이수학점표(기초교양11·중핵교양18·전공기초15이상·전공필수0·전공선택36(66)이상)를 반영 — 총량 표기(130이상)는 학교 공통기준 그대로 사용, 전공선택 상한(66)은 creditBreakdown에 표현 불가해 note로만 남김.',
     },
     {
       id: 19,
@@ -1042,6 +1047,8 @@ async function main() {
       cohortLabel: '2025년 8월 졸업 이후 (신제도, 학번 무관하게 해당 시점 이후 졸업자 전원 적용)',
       basis: 'GRADUATION_DATE',
       graduationDateFrom: '2025-08',
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 15, majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: { hasExam: 'N', detail: '졸업시험 폐지됨. 대신 서류제출 기반 심사로 전환' },
       mandatoryRequirements: [
         {
@@ -1070,6 +1077,7 @@ async function main() {
       cohortLabel: '05학번~ (전공필수과목 기준. 04학번 이전은 과사무실 문의 필요)',
       admissionYearFrom: 2005,
       totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 3, 전공필수: 9, majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: { hasExam: 'N', detail: '졸업시험 없음' },
       mandatoryRequirements: [
         {
@@ -1088,7 +1096,9 @@ async function main() {
       ],
       trackRestrictionNote: '없음(트랙 없음)',
       sourceUrl: 'https://sociology.catholic.ac.kr/sociology/course/academic.do',
-      notes: '원문에 구체 학점표 없음, 학사제도 안내책자 참고 필요',
+      notes:
+        SNIPPET_NOTE_PREFIX +
+        '[재확인 2026-07] creditBreakdown은 academic.do 이수학점표(전공기초 사회학개론3, 전공필수9, 전공선택 심화57/복수27, 전공계 심화66/복수36)를 반영. 종합시험/논문 관련 상세 절차는 여전히 원문에 구체 학점표가 없어 학사제도 안내책자 참고 필요.',
     },
     // ── 철학과 ──
     {
@@ -1096,6 +1106,7 @@ async function main() {
       departmentId: 301,
       cohortLabel: '전체(공통)',
       totalCreditMin: 130,
+      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: {
         hasExam: 'Y(논문과 택1)',
         detail: '졸업시험 응시 시: 홈페이지 게시 문제 20문항 중 출제, 매년 5월·11월 시행, 재시험도 동일 일정으로 운영',
@@ -1112,6 +1123,9 @@ async function main() {
       ],
       trackRestrictionNote: '졸업논문/졸업시험 둘 다 불통과 시 졸업 불가, 수료로 처리됨. 졸업 학기에 반드시 재신청 필요(졸업 유예 시 재신청). 없음(트랙 없음)',
       sourceUrl: 'https://philosophy.catholic.ac.kr/philosophy/course/academic.do',
+      dataSource: 'SEARCH_SNIPPET',
+      verified: false,
+      notes: SNIPPET_NOTE_PREFIX + 'creditBreakdown은 전공심화66/복수전공36 총량만 확인됨(전공기초/전공필수/전공선택 세부 구성은 원문 미확인).',
     },
     // ── 에너지환경공학과 ──
     {
@@ -1133,6 +1147,7 @@ async function main() {
       id: 23,
       departmentId: 313,
       cohortLabel: '전체(공통, 세부 학번 구간은 미확인)',
+      dataSource: 'NOT_FOUND',
       comprehensiveExam: {
         hasExam: 'Y',
         detail:
@@ -1142,7 +1157,7 @@ async function main() {
       trackRestrictionNote: '없음(트랙 없음)',
       sourceUrl: 'https://law.catholic.ac.kr/law/course/academic.do',
       notes:
-        '공지사항 게시물 기반, academic.do 원문 미대조 — 대체인정(자격증·어학 등) 존재 여부가 불명확하므로 심리학과식 무대체형으로 단정하지 말 것, 반드시 원본 페이지 확인 후 갱신 필요',
+        '공지사항 게시물 기반, academic.do 원문 미대조 — 대체인정(자격증·어학 등) 존재 여부가 불명확하므로 심리학과식 무대체형으로 단정하지 말 것, 반드시 원본 페이지 확인 후 갱신 필요. [재확인 2026-07] creditBreakdown 보강 조사에서도 law.catholic.ac.kr academic.do에 이수구분별 학점표 자체를 찾지 못함.',
     },
     // ── 경제학과 (점수누적형, 패턴 ⑬) ──
     {
@@ -1183,6 +1198,7 @@ async function main() {
       ],
       trackRestrictionNote: '없음(트랙 없음). 5가지 중 택1이지만 항목별로 평가체계(P/F, A/B 등급 등)가 다름',
       sourceUrl: 'https://english.catholic.ac.kr/english/course/academic.do',
+      notes: '[재확인 2026-07] creditBreakdown 보강 조사에서도 academic.do에 이수구분별 학점표를 찾지 못함(졸업요건 섹션만 있고 학점표 없음) — 학과사무실 확인 필요.',
     },
     {
       id: 26,
@@ -1212,7 +1228,8 @@ async function main() {
       substitutionRules: [],
       trackRestrictionNote: '없음(트랙 없음)',
       sourceUrl: 'https://english.catholic.ac.kr/english/course/academic.do',
-      notes: '2014년 이전 입학생은 학과 별도 문의 필요(원문에 명시). economics학과와 유사한 점수누적형',
+      notes:
+        '2014년 이전 입학생은 학과 별도 문의 필요(원문에 명시). economics학과와 유사한 점수누적형. [재확인 2026-07] creditBreakdown은 여전히 academic.do에서 찾지 못함.',
     },
     // ── 국사학과 ──
     {
@@ -1245,6 +1262,8 @@ async function main() {
       id: 28,
       departmentId: 315,
       cohortLabel: '2024년 8월 졸업~ (신제도)',
+      totalCreditMin: 130,
+      creditBreakdown: { majorDeepMin: 72, doubleMajorMin: 36 },
       scoringMethod: 'POINT_ACCUMULATION',
       pointThreshold: 100,
       comprehensiveExam: { hasExam: 'N', detail: '졸업시험 없음' },
@@ -1259,7 +1278,9 @@ async function main() {
       trackRestrictionNote: '[외국어+자격증+대회입상+교내외활동] 4개 항목 합산 100점 이상이면 졸업 — 경제학과·영어영문학부와 동일한 점수누적형. 없음(트랙 없음)',
       sourceUrl: 'https://pa.catholic.ac.kr (정확한 course/academic.do 경로 미확인, 공지사항 기반)',
       notes:
-        '공지사항 게시물 기반, academic.do 원문 미대조. 2016년 세부기준 완화, 2024년 8월부터 100점 합산제로 전환 — 항목별 배점표는 미확인(논문 포함 여부도 미확인)',
+        '공지사항 게시물 기반, academic.do 원문 미대조. 2016년 세부기준 완화, 2024년 8월부터 100점 합산제로 전환 — 항목별 배점표는 미확인(논문 포함 여부도 미확인). [재확인 2026-07] creditBreakdown(전공심화72, 복수전공36 — 필수0·선택 전량)은 academic.do 이수학점표에서 확인, 총량(130)은 학교 공통기준 적용.',
+      dataSource: 'SEARCH_SNIPPET',
+      verified: false,
     },
     // ── 수학과 (직접 열람 확인, 패턴 ⑮ 대체완료 사례) ──
     {
@@ -1336,7 +1357,8 @@ async function main() {
       trackRestrictionNote:
         '없음(트랙 없음). 6개 대안 중 택1(자격증계열/AICPA·CMA/학술논문/공모전/토익+재경관리사/논문) — 공무원시험 합격·국가고시 합격·대학원진학·장교임관 등은 면제사유로 불인정',
       sourceUrl: 'https://accounting.catholic.ac.kr/accounting/course/academic.do',
-      notes: '졸업최저이수학점 구체 수치는 이 페이지에 없음(경영대학 공통기준 참고 필요)',
+      notes:
+        '졸업최저이수학점 구체 수치는 이 페이지에 없음(경영대학 공통기준 참고 필요). [재확인 2026-07] creditBreakdown 보강 조사에서도 이수구분별 학점표를 찾지 못함 — 경영대학(경영학과·글로벌경영학과 등) 공통 학사요람 형식과 달리 이 학과 페이지엔 표 자체가 게재되어 있지 않음.',
     },
     // ── 물리학과 (학번형) ──
     {
@@ -1435,7 +1457,7 @@ async function main() {
       sourceUrl: 'https://fn.catholic.ac.kr/fn/course/academic.do (첨부파일 미열람)',
       attachmentUrl: 'https://fn.catholic.ac.kr/fn/community/notice.do?mode=view&articleNo=115578',
       notes:
-        '졸업논문/졸업시험 세부기준(과목, 합격점수 등)은 공지사항 첨부파일(PDF/HWP)에만 있고 본문에는 없음 — 첨부파일 다운로드 후 텍스트 추출 필요(크롤러 설계 시 첨부파일 파싱 기능이 필요한 대표 사례)',
+        '졸업논문/졸업시험 세부기준(과목, 합격점수 등)은 공지사항 첨부파일(PDF/HWP)에만 있고 본문에는 없음 — 첨부파일 다운로드 후 텍스트 추출 필요(크롤러 설계 시 첨부파일 파싱 기능이 필요한 대표 사례). [재확인 2026-07] course/academic.do가 404로 바뀌어 curriculum.do로 재시도했으나 이수구분별 학점표를 찾지 못함 — academic-information.do 경로가 남아있어 다음 조사 때 우선 확인 권장.',
     },
     // ── 음악과 (페이지 미기재형) ──
     {
@@ -1451,7 +1473,7 @@ async function main() {
       trackRestrictionNote: '세부전공별로 심사 기준이 다를 가능성 높음(재확인 필요)',
       sourceUrl: 'https://music.catholic.ac.kr/music/course/academic.do',
       notes:
-        '학사정보 페이지 본문에 졸업요건 섹션 자체가 없음 — 의류학과(⑯ 창작물형)처럼 졸업연주/실기심사 방식일 가능성이 높지만 이 페이지만으로는 확정 불가. 공지사항 게시판에서 매학기 공지되는 졸업연주 관련 게시물 확인 필요(크롤러 폴백 대상)',
+        '학사정보 페이지 본문에 졸업요건 섹션 자체가 없음 — 의류학과(⑯ 창작물형)처럼 졸업연주/실기심사 방식일 가능성이 높지만 이 페이지만으로는 확정 불가. 공지사항 게시판에서 매학기 공지되는 졸업연주 관련 게시물 확인 필요(크롤러 폴백 대상). [재확인 2026-07] creditBreakdown도 여전히 못 찾음.',
     },
     // ── 성악과 ──
     {
@@ -1593,6 +1615,8 @@ async function main() {
       cohortLabel: '2026학번~ (신설학과)',
       admissionYearFrom: 2026,
       dataSource: 'NOT_YET_ESTABLISHED',
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 15, majorDeepMin: 54, doubleMajorMin: 36 },
       comprehensiveExam: {
         detail:
           "★2026학년도 신설 예정 학과 — 학과 소개 페이지에 '2026에 신설 예정인 첨단융합학과'로 명시됨. 아직 재학생이 존재하지 않아 졸업요건 자체가 확정·공개되지 않은 상태",
@@ -1601,7 +1625,7 @@ async function main() {
       trackRestrictionNote: '없음(트랙 없음, 신설학과)',
       sourceUrl: 'https://aibme.catholic.ac.kr/aibme/info/introduction.do',
       notes:
-        '신설 학과라 졸업요건 자체가 아직 없음 — 조사 실패가 아니라 사실관계임. 최초 졸업생은 2030년 2월(2026학번 4년 후) 배출 예정으로 추정. 크롤러는 이 상태 플래그로 무의미한 반복 크롤링을 피해야 함',
+        '신설 학과라 졸업논문/종합시험 등 졸업요건 자체가 아직 확정되지 않음 — 조사 실패가 아니라 사실관계임. 최초 졸업생은 2030년 2월(2026학번 4년 후) 배출 예정으로 추정. 크롤러는 이 상태 플래그로 무의미한 반복 크롤링을 피해야 함. [재확인 2026-07] 다만 이수구분별 학점표(creditBreakdown)는 신입생 모집을 위해 academic.do에 이미 게시되어 있어 확보함(기초교양11·중핵교양18·전공기초15·전공선택복수36·전공심화54) — 시험/논문 등 졸업 판정 방식만 미확정 상태.',
     },
     // ── 바이오메디컬소프트웨어학과 (신설학과 미확정형) ──
     {
@@ -1610,6 +1634,8 @@ async function main() {
       cohortLabel: '2023학번~ (2023년 신설학과)',
       admissionYearFrom: 2023,
       dataSource: 'NOT_YET_ESTABLISHED',
+      totalCreditMin: 130,
+      creditBreakdown: { 전공필수: 15, majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: {
         detail:
           "2023년 신설 학과로 인공지능학과·데이터사이언스학과와 함께 '융복합 첨단학과 클러스터'로 묶임. 2023학번 기준 2027년 2월이 첫 졸업 예정 시점으로 추정되나, 조사 시점(2026-07)까지 학사정보 페이지에서 졸업시험/논문 관련 구체 요건을 확인하지 못함",
@@ -1618,7 +1644,7 @@ async function main() {
       trackRestrictionNote: '두 트랙(디지털헬스케어/의료소프트웨어공학)별로 졸업요건이 다를 가능성 있으나 확인 못함',
       sourceUrl: 'https://bmsw.catholic.ac.kr/bmsw/info/introduction.do',
       notes:
-        '아직 첫 졸업생이 배출되지 않았을 가능성이 높음(2023학번 기준 2027년 2월 졸업 예정). AI전자정보융합대학 계열(인공지능학과·데이터사이언스학과)의 어학성적 필수+논문/인턴십/졸업작품 택1 패턴을 채택할 가능성 있음(추정, 확정 아님)',
+        '아직 첫 졸업생이 배출되지 않았을 가능성이 높음(2023학번 기준 2027년 2월 졸업 예정). AI전자정보융합대학 계열(인공지능학과·데이터사이언스학과)의 어학성적 필수+논문/인턴십/졸업작품 택1 패턴을 채택할 가능성 있음(추정, 확정 아님). [재확인 2026-07] creditBreakdown은 academic.do 이수학점표에서 확보(23학번: 기초13·중핵15, 24학번~: 기초11·중핵18·교양선택10 — 기초/중핵은 common-liberal-arts.ts로 별도 관리되어 이 행엔 전공필수15·전공계 심화66/복수36만 반영. 24학번 이후에도 전공 계열 구성은 동일한 것으로 확인됨). 전공선택 자체는 0으로 표기되어 있어 전공필수+심화/복수 총량 차이만큼이 세부과목 선택 없이 채워지는 구조로 추정 — 정확도 재확인 권장.',
     },
     // ── 바이오로직스공학부 (신설학과 미확정형, ★사용자 확인) ──
     {
@@ -1659,6 +1685,8 @@ async function main() {
       cohortLabel: '전체(공통)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 3, majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: {
         hasExam: 'Y(조건부)',
         detail:
@@ -1681,7 +1709,7 @@ async function main() {
         'https://cn.catholic.ac.kr/cn/community/notice.do?mode=view&articleNo=264564 ; https://cn.catholic.ac.kr/cn/community/notice.do?mode=view&articleNo=258475',
       notes:
         SNIPPET_NOTE_PREFIX +
-        'WebFetch로 cn.catholic.ac.kr 직접 접속이 403으로 차단되어 검색엔진 스니펫만으로 파악함. 졸업최저이수학점, 각 대체경로의 구체적 합격기준·점수·등급, 트랙 존재 여부, 학번별 요건 차이는 확인 못함. 원문 게시글 전문 미열람.',
+        'WebFetch로 cn.catholic.ac.kr 직접 접속이 403으로 차단되어 검색엔진 스니펫만으로 파악함. 각 대체경로의 구체적 합격기준·점수·등급, 트랙 존재 여부는 확인 못함. 원문 게시글 전문 미열람. [재확인 2026-07] creditBreakdown(전공기초3 중국문화의이해, 전공선택 20학번까지 33이상/21학번부터 36이상, 전공필수3은 21학번부터 폐지)은 검색 스니펫 기반으로 확보했으나 학번별 세부 구간은 majorDeepMin/doubleMajorMin 총량(66/36)으로만 단순화해 반영함 — 21학번 기준 전공필수 폐지 여부 등 학번별 정밀 반영은 안 됨.',
     },
     // ── 일어일본문화학과 ──
     {
@@ -1704,7 +1732,7 @@ async function main() {
       sourceUrl: 'https://japanese.catholic.ac.kr/japanese/major/law.do',
       notes:
         SNIPPET_NOTE_PREFIX +
-        'WebFetch로 japanese.catholic.ac.kr 직접 접속이 403으로 차단되어 검색엔진 스니펫만으로 파악함. JLPT/JPT 구체 합격 급수·점수, 졸업최저이수학점, 전공선택학점은 확인 못함. 비공식 출처(대학백과 Q&A)의 "21학번부터 요건 1개 추가" 언급은 공식 확인 안 되어 미채택.',
+        'WebFetch로 japanese.catholic.ac.kr 직접 접속이 403으로 차단되어 검색엔진 스니펫만으로 파악함. JLPT/JPT 구체 합격 급수·점수, 졸업최저이수학점, 전공선택학점은 확인 못함. 비공식 출처(대학백과 Q&A)의 "21학번부터 요건 1개 추가" 언급은 공식 확인 안 되어 미채택. [재확인 2026-07] course/academic.do는 여전히 404이고 major/law.do(졸업규정 페이지)는 직접 열람됐으나 졸업인증 방식(논문/번역/JLPT·JPT)만 있을 뿐 이수구분별 학점표는 이 페이지에도 없어 creditBreakdown은 계속 확보 못함.',
     },
     // ── 국제경영학과 ──
     {
@@ -1713,6 +1741,8 @@ async function main() {
       cohortLabel: '전체(공통, 2025.5 개정 반영)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 6, 전공필수: 9, 전공선택: 57 },
       comprehensiveExam: {
         hasExam: 'Y(조건부)',
         detail:
@@ -1732,7 +1762,7 @@ async function main() {
         'https://gbs.catholic.ac.kr/gbs/course/graduation1.do ; https://gbs.catholic.ac.kr/gbs/community/notice.do?mode=view&articleNo=265617',
       notes:
         SNIPPET_NOTE_PREFIX +
-        '국제경영학과는 前 글로벌미래경영학과이며 2025년 5월 졸업요건이 개정됨. 개정 전/후 적용 학번 구간, 졸업최저이수학점, 전공선택학점, 트랙 존재 여부는 확인 못함. 국제학부(is.catholic.ac.kr)와는 전혀 다른 학과이므로 혼동 주의. 졸업논문 옵션 확인 안 됨.',
+        '국제경영학과는 前 글로벌미래경영학과이며 2025년 5월 졸업요건이 개정됨. 개정 전/후 적용 학번 구간, 트랙 존재 여부는 확인 못함. 국제학부(is.catholic.ac.kr)와는 전혀 다른 학과이므로 혼동 주의. 졸업논문 옵션 확인 안 됨. [재확인 2026-07] creditBreakdown(총130, 교양27이상[기초11+중핵15], 전공기초6·전공필수9·전공선택57·전공계66)은 gbs.catholic.ac.kr 공유 학사정보 페이지에서 확인 — 국제경영학과·세무회계금융학과·IT파이낸스학과 3개 학과가 동일한 전공 학점 구성을 공유함(단과대 공통 구조로 추정, 개별 확정 아님).',
     },
     // ── 세무회계금융학과 ──
     {
@@ -1741,6 +1771,8 @@ async function main() {
       cohortLabel: '전체(공통)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 6, 전공필수: 9, 전공선택: 57 },
       comprehensiveExam: {
         hasExam: 'Y(조건부)',
         detail:
@@ -1758,7 +1790,7 @@ async function main() {
       sourceUrl: 'https://gbs.catholic.ac.kr/gbs/course/graduation2.do ; https://gbs.catholic.ac.kr/gbs/course/roadmap02.do',
       notes:
         SNIPPET_NOTE_PREFIX +
-        '졸업종합시험 과목코드가 회계학과와 동일하게 검색되어 교차확인 필요(검색엔진 요약 과정에서 다른 학과 정보와 혼합됐을 가능성 배제 못함). 졸업최저이수학점, 전공선택학점, 정확한 적용 학번, 트랙 존재 여부는 확인 못함.',
+        '졸업종합시험 과목코드가 회계학과와 동일하게 검색되어 교차확인 필요(검색엔진 요약 과정에서 다른 학과 정보와 혼합됐을 가능성 배제 못함). 정확한 적용 학번, 트랙 존재 여부는 확인 못함. [재확인 2026-07] creditBreakdown(총130, 교양27이상[기초11+중핵15], 전공기초6·전공필수9·전공선택57·전공계66)은 gbs.catholic.ac.kr 공유 학사정보 페이지에서 국제경영학과·IT파이낸스학과와 동일 값으로 확인됨(단과대 공통 구조로 추정).',
     },
     // ── IT파이낸스학과 ──
     {
@@ -1767,6 +1799,8 @@ async function main() {
       cohortLabel: '전체(공통)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 6, 전공필수: 9, 전공선택: 57 },
       comprehensiveExam: {
         hasExam: 'Y(조건부)',
         detail:
@@ -1784,7 +1818,7 @@ async function main() {
       sourceUrl: 'https://gbs.catholic.ac.kr/gbs/course/graduation3.do',
       notes:
         SNIPPET_NOTE_PREFIX +
-        '택1 항목에 자격증 포함 여부, 어학성적 구체 기준 점수, 졸업종합시험 실제 응시과목 수(과목코드 4개 vs 과목명 3개 불일치) 확인 못함. 졸업최저이수학점·전공선택학점·적용학번·트랙 존재 여부도 확인 못함. graduation3.do 및 첨부파일 원문 직접 확인 필요.',
+        '택1 항목에 자격증 포함 여부, 어학성적 구체 기준 점수, 졸업종합시험 실제 응시과목 수(과목코드 4개 vs 과목명 3개 불일치) 확인 못함. 적용학번·트랙 존재 여부도 확인 못함. graduation3.do 및 첨부파일 원문 직접 확인 필요. [재확인 2026-07] creditBreakdown(총130, 교양27이상[기초11+중핵15], 전공기초6·전공필수9·전공선택57·전공계66)은 gbs.catholic.ac.kr 공유 학사정보 페이지에서 국제경영학과·세무회계금융학과와 동일 값으로 확인됨(단과대 공통 구조로 추정, 개별 확정 아님).',
     },
     // ── 약학과 (2+4년제/통합6년제, 패턴 ⑤) ──
     {
@@ -1849,6 +1883,8 @@ async function main() {
       cohortLabel: '전체(공통) — 1전공자(전공심화 포함)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 15, 전공필수: 3, 전공선택: 63 },
       comprehensiveExam: {
         hasExam: 'Y(조건부)',
         detail:
@@ -1873,7 +1909,7 @@ async function main() {
       sourceUrl: 'https://biotech.catholic.ac.kr/biotech/community/notice.do?mode=view&articleNo=115184',
       notes:
         SNIPPET_NOTE_PREFIX +
-        "2023-2학기 '★중요★ 졸업요건 제출일정 안내' 공지 스니펫 기반. 어학성적 구체 기준 점수, 졸업시험 과목, 졸업최저이수학점 등 숫자 정보 확인 불가. 한시적 안내인지 상시 규정인지 불명확하여 '전체(공통)'으로 잠정 처리.",
+        "2023-2학기 '★중요★ 졸업요건 제출일정 안내' 공지 스니펫 기반. 어학성적 구체 기준 점수, 졸업시험 과목 등 숫자 정보 확인 불가. 한시적 안내인지 상시 규정인지 불명확하여 '전체(공통)'으로 잠정 처리. [재확인 2026-07] creditBreakdown(총130이상, 기초교양11·중핵교양18, 전공기초15[공학9+타계열6]·전공필수3[유전공학]·전공선택 심화63)은 academic.do 이수학점표에서 확인. 외국어강의 24학점이상 요건은 별도 존재(mandatoryRequirements 미반영, 추후 보강 필요).",
     },
     {
       id: 52,
@@ -1882,6 +1918,8 @@ async function main() {
       cohortLabel: '전체(공통) — 복수전공자(생명공학이 2전공인 경우)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { 전공기초: 15, 전공필수: 3, 전공선택: 33 },
       comprehensiveExam: {
         hasExam: 'Y(조건부)',
         detail: '복수전공자는 어학성적 제출·취업상담 요건이 면제되고, 졸업논문 또는 졸업시험 중 하나만 충족하면 됨. 구체 시험 과목·기준 확인 못함',
@@ -1894,7 +1932,7 @@ async function main() {
       sourceUrl: 'https://biotech.catholic.ac.kr/biotech/community/notice.do?mode=view&articleNo=115184',
       notes:
         SNIPPET_NOTE_PREFIX +
-        '위 1전공자 행과 동일한 공지(2023-2학기) 기반. 원문 미열람으로 세부 숫자 확인 불가. 이 완화 규정이 현재도 유효한지 재확인 필요. 어학성적 제출/취업상담 면제는 명시적으로 확인되어 mandatoryRequirements를 빈 배열로 확정함.',
+        '위 1전공자 행과 동일한 공지(2023-2학기) 기반. 이 완화 규정이 현재도 유효한지 재확인 필요. 어학성적 제출/취업상담 면제는 명시적으로 확인되어 mandatoryRequirements를 빈 배열로 확정함. [재확인 2026-07] creditBreakdown(총130이상, 전공기초15[공학9+타계열6]·전공필수3[유전공학]·전공선택 복수33)은 1전공자 행(id51)과 동일한 academic.do 이수학점표에서 확인 — 복수전공 기준 전공선택만 33으로 축소됨.',
     },
     // ── 특수교육과 ──
     {
@@ -1925,14 +1963,15 @@ async function main() {
         SNIPPET_NOTE_PREFIX +
         '교원자격증(특수학교 정교사) 연계 학과라 교직과목 요건이 중요하나 WebSearch 요약 스니펫에만 의존했음. 졸업최저이수학점 구체 수치, 종합시험 면제 인정 자격증 목록, 어학성적이 택1 대체인지 공통 필수인지는 원문 직접 열람 재확인 필요.',
     },
-    // ── 국제학부 (트랙 4종, 필수+선택 혼합형, 패턴 ①④⑪) ──
+    // ── 국제학부 (트랙 구분 폐지 — 2026-07 통합, 패턴 ①④⑪) ──
     {
       id: 54,
       departmentId: 312,
-      trackId: 16,
-      cohortLabel: '전체(공통, 2013학번 이후 현행 트랙제도 적용)',
+      cohortLabel: '전체(공통, 2013학번 이후 현행 제도 적용 — 트랙 구분 없이 동일 요건)',
       dataSource: 'SEARCH_SNIPPET',
       verified: false,
+      totalCreditMin: 130,
+      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36 },
       comprehensiveExam: {
         hasExam: 'N',
         detail:
@@ -1954,94 +1993,12 @@ async function main() {
         },
       ],
       trackRestrictionNote:
-        "국제학부는 미국학/중국학/국제관계학/국제통상학 4개 트랙으로 구성. 융복합트랙은 졸업(수료) 요건과 무관해서 이수요건 못 채워도 본전공 요건만 충족하면 자동 졸업됨(패턴 ④, 이 트랙과 혼동 주의)",
+        '국제학부는 미국학/중국학/국제관계학/국제통상학 4개 트랙으로 구성되나(2026-07 재확인 결과 트랙별 졸업요건 차등 규정을 발견하지 못해 트랙 구분 없이 단일 요건 행으로 통합함). 융복합트랙은 졸업(수료) 요건과 무관해서 이수요건 못 채워도 본전공 요건만 충족하면 자동 졸업됨(패턴 ④, 이 트랙과 혼동 주의)',
       sourceUrl:
         'https://is.catholic.ac.kr/is/community/notice.do?mode=view&articleNo=239259 ; https://is.catholic.ac.kr/is/course/academic.do',
       notes:
         SNIPPET_NOTE_PREFIX +
-        '4개 트랙 각각 동일한 졸업요건 공식이 적용된다고 가정해 행을 분리했으나 트랙별 차이가 실제로 없는지는 원문 대조 필요. 어학성적 수치(TOEFL iBT 100/TEPS 800)는 신뢰도 낮은 검색 요약.',
-    },
-    {
-      id: 55,
-      departmentId: 312,
-      trackId: 17,
-      cohortLabel: '전체(공통, 2013학번 이후 현행 트랙제도 적용)',
-      dataSource: 'SEARCH_SNIPPET',
-      verified: false,
-      comprehensiveExam: {
-        hasExam: 'N',
-        detail: '별도의 졸업종합시험은 검색상 확인되지 않음. 대신 [졸업논문+어학성적+영어강의] 또는 [자격증+어학성적+영어강의] 중 택1 구조(병렬조건형)',
-      },
-      mandatoryRequirements: [
-        { type: 'LANGUAGE', condition: '어학성적(TOEFL iBT 100점, TEPS 800점 기준 언급되나 신뢰도 낮음)', note: '두 경로 모두 공통 필수' },
-        { type: 'FOREIGN_LANGUAGE_COURSE', condition: '영어강의 이수(구체 이수 과목 수/학점 미확인)', note: '어학성적과 별도로 공통 필수' },
-      ],
-      substitutionRules: [
-        { type: 'THESIS', condition: '졸업논문 제출(자격증 경로와 양자택일)' },
-        {
-          type: 'CERTIFICATE',
-          condition: '관세사, 국제물류사, 원산지관리사, 국제무역사 1급, 무역영어 1급, 외환전문역 1종/2종, 물류관리사 등',
-        },
-      ],
-      trackRestrictionNote: '4개 트랙 공통 적용으로 보임(트랙별 차등 규정 검색상 발견 못함)',
-      sourceUrl:
-        'https://is.catholic.ac.kr/is/community/notice.do?mode=view&articleNo=239259 ; https://is.catholic.ac.kr/is/course/academic.do',
-      notes: SNIPPET_NOTE_PREFIX + '4개 트랙에 동일 공식이 적용된다고 가정해 행을 분리했으나 트랙별 차이 실재 여부는 원문 대조 필요.',
-    },
-    {
-      id: 56,
-      departmentId: 312,
-      trackId: 18,
-      cohortLabel: '전체(공통, 2013학번 이후 현행 트랙제도 적용)',
-      dataSource: 'SEARCH_SNIPPET',
-      verified: false,
-      comprehensiveExam: {
-        hasExam: 'N',
-        detail: '별도의 졸업종합시험은 검색상 확인되지 않음. 대신 [졸업논문+어학성적+영어강의] 또는 [자격증+어학성적+영어강의] 중 택1 구조(병렬조건형)',
-      },
-      mandatoryRequirements: [
-        { type: 'LANGUAGE', condition: '어학성적(TOEFL iBT 100점, TEPS 800점 기준 언급되나 신뢰도 낮음)', note: '두 경로 모두 공통 필수' },
-        { type: 'FOREIGN_LANGUAGE_COURSE', condition: '영어강의 이수(구체 이수 과목 수/학점 미확인)', note: '어학성적과 별도로 공통 필수' },
-      ],
-      substitutionRules: [
-        { type: 'THESIS', condition: '졸업논문 제출(자격증 경로와 양자택일)' },
-        {
-          type: 'CERTIFICATE',
-          condition: '관세사, 국제물류사, 원산지관리사, 국제무역사 1급, 무역영어 1급, 외환전문역 1종/2종, 물류관리사 등',
-        },
-      ],
-      trackRestrictionNote: '4개 트랙 공통 적용으로 보임',
-      sourceUrl:
-        'https://is.catholic.ac.kr/is/community/notice.do?mode=view&articleNo=239259 ; https://is.catholic.ac.kr/is/course/academic.do',
-      notes: SNIPPET_NOTE_PREFIX + '4개 트랙에 동일 공식이 적용된다고 가정해 행을 분리했으나 트랙별 차이 실재 여부는 원문 대조 필요.',
-    },
-    {
-      id: 57,
-      departmentId: 312,
-      trackId: 19,
-      cohortLabel: '전체(공통, 2013학번 이후 현행 트랙제도 적용)',
-      dataSource: 'SEARCH_SNIPPET',
-      verified: false,
-      comprehensiveExam: {
-        hasExam: 'N',
-        detail: '별도의 졸업종합시험은 검색상 확인되지 않음. 대신 [졸업논문+어학성적+영어강의] 또는 [자격증+어학성적+영어강의] 중 택1 구조(병렬조건형)',
-      },
-      mandatoryRequirements: [
-        { type: 'LANGUAGE', condition: '어학성적(TOEFL iBT 100점, TEPS 800점 기준 언급되나 신뢰도 낮음)', note: '두 경로 모두 공통 필수' },
-        { type: 'FOREIGN_LANGUAGE_COURSE', condition: '영어강의 이수(구체 이수 과목 수/학점 미확인)', note: '어학성적과 별도로 공통 필수' },
-      ],
-      substitutionRules: [
-        { type: 'THESIS', condition: '졸업논문 제출(자격증 경로와 양자택일)' },
-        {
-          type: 'CERTIFICATE',
-          condition: '관세사, 국제물류사, 원산지관리사, 국제무역사 1급, 무역영어 1급, 외환전문역 1종/2종, 물류관리사 등',
-          note: '국제통상학 트랙과 연관성 높아 보이나 트랙 한정 여부 미확인',
-        },
-      ],
-      trackRestrictionNote: '4개 트랙 공통 적용으로 보임',
-      sourceUrl:
-        'https://is.catholic.ac.kr/is/community/notice.do?mode=view&articleNo=239259 ; https://is.catholic.ac.kr/is/course/academic.do',
-      notes: SNIPPET_NOTE_PREFIX + '4개 트랙에 동일 공식이 적용된다고 가정해 행을 분리했으나 트랙별 차이 실재 여부는 원문 대조 필요.',
+        '[재확인 2026-07] 기존엔 4개 트랙(미국학/중국학/국제관계학/국제통상학)에 완전히 동일한 내용을 4개 행(구 id 54~57, trackId만 다름)으로 중복 등록해뒀었음 — findRequirementForDept()가 trackId:null 행을 모든 트랙에 매칭시키는 걸 재확인하고, academic.do 원문도 트랙별 요건 차이를 기술하지 않아 불필요한 중복으로 판단해 이 1개 행(trackId 없음)으로 통합함. creditBreakdown(전공심화66/복수전공36)을 새로 추가했으나 전공기초 세부 구성("사회영역6+타영역3이상")은 creditBreakdown 키로 명확히 표현하기 어려워 이 note로만 남김. 어학성적 수치(TOEFL iBT 100/TEPS 800)는 여전히 신뢰도 낮은 검색 요약.',
     },
   ];
 
@@ -2083,6 +2040,17 @@ async function main() {
       update: fields,
       create: { id: r.id, ...fields },
     });
+  }
+
+  // 국제학부(312) 트랙 4종 중복 행 통합(2026-07): 기존 id 55/56/57(중국학/국제관계학/국제통상학
+  // 트랙 행)을 GRADUATION_REQUIREMENTS 배열에서 제거하고 id 54 하나(trackId 없음)로 합쳤다. 위
+  // upsert 루프는 배열에 있는 id만 갱신하고 없는 id는 그대로 두므로, 이미 시드된 적 있는 DB에는
+  // 옛 55/56/57 행이 trackId 17/18/19로 계속 남아 findRequirementForDept()의
+  // `OR: [{trackId:null},{trackId}]` 조건에서 새 id54와 동시에 매칭돼 findFirst 결과가
+  // 비결정적으로 흔들릴 수 있다 — 명시적으로 삭제해 안전하게 정리한다.
+  const staleIds = [55, 56, 57].filter((id) => !GRADUATION_REQUIREMENTS.some((r) => r.id === id));
+  if (staleIds.length > 0) {
+    await prisma.catalogGraduationRequirement.deleteMany({ where: { id: { in: staleIds } } });
   }
 
   // eslint-disable-next-line no-console
