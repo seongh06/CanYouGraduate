@@ -51,6 +51,16 @@ export type CreditBreakdownItem =
 
 type MajorSlot = 'FIRST' | 'SECOND';
 
+// 트랙마다 인정 과목·세부영역이 다른 학과(TrackCourseRecognition에 데이터가 있는 경우)용 집계 결과.
+// totalEarned/totalCourses는 해당 트랙에서 "인정된" 과목만 합산한 전공 총 이수학점 — 트랙을 안 고른
+// 학생(트랙미이수)이나 recognition 데이터가 없는 학과는 이 집계 자체를 만들지 않고(null) 기존
+// category 기반 계산으로 폴백한다.
+interface TrackAreaBreakdown {
+  totalEarned: number;
+  totalCourses: string[];
+  areas: Map<string, { earned: number; courses: string[] }>;
+}
+
 export interface MajorResult {
   totalCreditMin: number | null;
   creditBreakdown: CreditBreakdownItem[];
@@ -335,7 +345,8 @@ export class GraduationService {
     takenNames: Set<string>,
     preferDoubleMajorMin: boolean,
   ): Promise<CreditBreakdownItem[]> {
-    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, preferDoubleMajorMin);
+    const trackArea = await this.resolveTrackAreaBreakdown(departmentId, requirement.trackId, courses, slot);
+    const creditBreakdown = this.calculateCreditBreakdown(requirement, courses, slot, preferDoubleMajorMin, trackArea);
     const suggestions = await this.suggestCourses(departmentId, slot, creditBreakdown, takenNames);
     const withSuggestions = creditBreakdown.map((item) =>
       item.status === 'fail' ? { ...item, suggestedCourses: suggestions[item.key] ?? null } : item,
@@ -414,9 +425,10 @@ export class GraduationService {
   // trackOverride: 결과화면 트랙 미리보기용 — 주어지면 프로필에 저장된 majorTrackId 대신 이
   // 값으로 조회한다(프로필엔 반영 안 됨, 순수 조회 시점 override).
   private async findRequirement(profile: Profile, trackOverride?: number): Promise<CatalogGraduationRequirement> {
+    const trackId = await this.resolveEffectiveTrackId(profile.majorDepartmentId, trackOverride ?? profile.majorTrackId);
     const requirement = await this.findRequirementForDept(
       profile.majorDepartmentId,
-      trackOverride ?? profile.majorTrackId,
+      trackId,
       profile.admissionYear,
       'FIRST_MAJOR',
     );
@@ -431,12 +443,18 @@ export class GraduationService {
   // programType 기준, 이 쪽은 상대 학과 입장에서 본 이 학생의 역할 기준).
   private async findSecondMajorRequirement(profile: Profile): Promise<CatalogGraduationRequirement | null> {
     if (profile.programType !== 'DOUBLE_MAJOR' || !profile.secondMajorDepartmentId) return null;
-    return this.findRequirementForDept(
-      profile.secondMajorDepartmentId,
-      profile.secondMajorTrackId,
-      profile.admissionYear,
-      'DOUBLE_MAJOR',
-    );
+    const trackId = await this.resolveEffectiveTrackId(profile.secondMajorDepartmentId, profile.secondMajorTrackId);
+    return this.findRequirementForDept(profile.secondMajorDepartmentId, trackId, profile.admissionYear, 'DOUBLE_MAJOR');
+  }
+
+  // 트랙을 아예 고르지 않은 프로필(majorTrackId/secondMajorTrackId가 null)이 트랙형 학과(미디어기술
+  // 콘텐츠학과 등)에 속하면, 그 학과의 "트랙미이수" Track을 default로 삼는다 — 사용자 확인(트랙별
+  // 인정과목 기능 default는 트랙미이수). 그런 이름의 트랙이 없는 학과(트랙 자체가 없는 대부분의
+  // 학과)는 null을 그대로 반환해 findRequirementForDept()가 트랙 조건 자체를 안 걸게 둔다.
+  private async resolveEffectiveTrackId(departmentId: number, trackId: number | null): Promise<number | null> {
+    if (trackId !== null) return trackId;
+    const fallbackTrack = await this.prisma.track.findFirst({ where: { departmentId, name: '트랙미이수' } });
+    return fallbackTrack?.id ?? null;
   }
 
   // scope(ALL/FIRST_MAJOR/DOUBLE_MAJOR)와 track을 모두 고려한 공용 조회. 학생이 트랙을 선택한
@@ -515,11 +533,55 @@ export class GraduationService {
       }));
   }
 
+  // 트랙마다 인정 과목·세부영역이 다른 학과(TrackCourseRecognition에 데이터가 있는 트랙)용 집계.
+  // 그 트랙에 데이터가 하나도 없으면(대부분의 학과, 그리고 트랙미이수) null을 반환해
+  // calculateCreditBreakdown()이 기존 category 기반 계산으로 폴백하게 한다 — 사용자 확인(트랙별
+  // 인정과목 기능 default는 트랙미이수, 즉 이 테이블에 손대지 않은 기존 동작을 그대로 유지).
+  private async resolveTrackAreaBreakdown(
+    departmentId: number,
+    trackId: number | null,
+    courses: ResolvedCourse[],
+    slot: MajorSlot,
+  ): Promise<TrackAreaBreakdown | null> {
+    if (trackId === null) return null;
+    const recognitions = await this.prisma.trackCourseRecognition.findMany({ where: { departmentId, trackId } });
+    if (recognitions.length === 0) return null;
+
+    const ownCategories = slot === 'FIRST' ? ['제1전공선택', '제1전공필수'] : ['제2전공선택', '제2전공필수'];
+    const areas = new Map<string, { earned: number; courses: string[] }>();
+    let totalEarned = 0;
+    const totalCourses: string[] = [];
+
+    for (const c of courses) {
+      if (!c.category || !ownCategories.includes(c.category)) continue;
+      // 개설학과가 지정된 인정행(타학과 교차인정 과목)은 개설학과명까지 일치해야 매칭 — 동명이과목
+      // 오매칭을 막는다(cross-major-credit-parser.ts와 동일한 원칙).
+      const matches = recognitions.filter(
+        (r) =>
+          courseNameMatchesPattern(c.name, r.courseName) &&
+          (!r.offeringDepartmentName || r.offeringDepartmentName === c.offeringDepartmentName),
+      );
+      if (matches.length === 0) continue;
+
+      totalEarned += c.credit;
+      totalCourses.push(c.name);
+      for (const m of matches) {
+        const bucket = areas.get(m.area) ?? { earned: 0, courses: [] };
+        bucket.earned += c.credit;
+        bucket.courses.push(c.name);
+        areas.set(m.area, bucket);
+      }
+    }
+
+    return { totalEarned, totalCourses, areas };
+  }
+
   private calculateCreditBreakdown(
     requirement: CatalogGraduationRequirement,
     courses: ResolvedCourse[],
     slot: MajorSlot,
     preferDoubleMajorMin: boolean,
+    trackArea: TrackAreaBreakdown | null,
   ): CreditBreakdownItem[] {
     const breakdown = (requirement.creditBreakdown ?? {}) as Record<string, number>;
     if (Object.keys(breakdown).length === 0) return [];
@@ -537,6 +599,34 @@ export class GraduationService {
         return true;
       })
       .map(([key, required]) => {
+        // 트랙별 인정과목 데이터가 있는 트랙(예: mtc 실제 트랙 3종)에서는 이 키가 그 트랙의 세부
+        // 인정 영역이면 category 매칭이 아니라 TrackCourseRecognition 매칭 결과로 이수학점을 센다.
+        const areaBucket = trackArea?.areas.get(key);
+        if (areaBucket) {
+          return {
+            key,
+            label: CATEGORY_KEY_LABEL[key] ?? key,
+            required,
+            earned: areaBucket.earned,
+            earnedCourses: areaBucket.courses,
+            status: areaBucket.earned >= required ? ('pass' as const) : ('fail' as const),
+          };
+        }
+
+        // 총 전공학점(majorDeepMin/doubleMajorMin) 자체도, 트랙별 인정 데이터가 있으면 "그 트랙에서
+        // 인정된 과목"만 합산한다 — 인정 안 되는 과목까지 합쳐 세면 트랙을 바꿔도 총량이 그대로라
+        // 트랙 미리보기가 무의미해진다(사용자 리포트: 트랙 선택 시 이수학점이 안 바뀌는 문제).
+        if (trackArea && (key === 'majorDeepMin' || key === 'doubleMajorMin')) {
+          return {
+            key,
+            label: CATEGORY_KEY_LABEL[key] ?? key,
+            required,
+            earned: trackArea.totalEarned,
+            earnedCourses: trackArea.totalCourses,
+            status: trackArea.totalEarned >= required ? ('pass' as const) : ('fail' as const),
+          };
+        }
+
         const categories = resolveCategories(key, slot);
         if (!categories) {
           return {

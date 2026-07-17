@@ -13,7 +13,8 @@
     "crawl:catalog": "ts-node scripts/crawl-catalog.ts",
     "import:offerings": "ts-node scripts/import-course-offerings.ts",
     "crawl:academic": "ts-node scripts/crawl-academic-requirements.ts",
-    "import:cross-major-credits": "ts-node scripts/import-cross-major-credits.ts"
+    "import:cross-major-credits": "ts-node scripts/import-cross-major-credits.ts",
+    "import:track-course-recognition": "ts-node scripts/import-track-course-recognition.ts"
   },
   "dependencies": {
     "@canyougraduate/shared-types": "*",

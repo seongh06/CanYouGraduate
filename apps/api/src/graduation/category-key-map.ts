@@ -70,4 +70,13 @@ export const CATEGORY_KEY_LABEL: Record<string, string> = {
   doubleMajorMin: '복수전공 최소학점',
   doubleMajorRequired: '복수전공 필수학점',
   minorMin: '부전공 최소학점',
+
+  // 미디어기술콘텐츠학과 트랙별 세부 인정 영역(TrackCourseRecognition.area와 동일 문자열) — 이
+  // 키들은 CATEGORY_KEY_MAP에 없어(과목 category로 직접 매칭 불가) graduation.service.ts가
+  // resolveTrackAreaBreakdown()으로 트랙별 인정과목을 따로 집계해서 채워준다.
+  기획창작영역: '기획창작 영역',
+  콘텐츠비즈니스영역: '콘텐츠비즈니스 영역',
+  기초영역: '기초 영역',
+  필수영역: '필수 영역',
+  응용영역: '응용 영역',
 };
