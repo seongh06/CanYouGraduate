@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { GoogleAnalytics } from '../components/analytics/GoogleAnalytics';
 import { Providers } from '../lib/providers';
 import './globals.css';
 
@@ -11,6 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="min-h-screen font-sans text-brand-text">
+        <GoogleAnalytics />
         <Providers>{children}</Providers>
       </body>
     </html>
