@@ -188,7 +188,11 @@ export default function ResultPage() {
       )}
 
       {activeMajor ? (
-        activeMajor.creditBreakdown.length === 0 && activeMajor.totalCreditMin === null ? (
+        activeMajor.creditBreakdown.length === 0 &&
+        activeMajor.totalCreditMin === null &&
+        !activeMajor.comprehensiveExam &&
+        activeMajor.substitutionRules.length === 0 &&
+        activeMajor.mandatoryRequirements.length === 0 ? (
           <Card className="mb-4">
             <div className="text-[13px] text-brand-text-muted">
               이 학과는 복수전공 졸업요건 데이터가 아직 준비되지 않았어요.
@@ -196,6 +200,10 @@ export default function ResultPage() {
           </Card>
         ) : (
           <>
+            {/* creditBreakdown/totalCreditMin은 없어도 졸업시험·대체규정 정보는 있는 학과가 있다(예:
+                경영학과 — 학점 구성표는 원문에 없지만 대체경로 5가지는 확인됨). 학점 구성이 없다고
+                있는 정보까지 통째로 숨기지 않는다 — CreditBreakdownList/RequirementInfoPanel은 각자
+                보여줄 내용이 없으면 스스로 null을 반환한다. */}
             <CreditBreakdownList items={activeMajor.creditBreakdown} />
             <RequirementInfoPanel
               comprehensiveExam={activeMajor.comprehensiveExam}
