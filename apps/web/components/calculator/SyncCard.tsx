@@ -41,6 +41,13 @@ export function SyncCard({ synced, syncing, onSyncStart }: SyncCardProps) {
       <div className="mb-4 text-[13px] text-brand-text-muted">
         에브리타임 앱에서 시간표 &rarr; 공유하기로 복사한 URL을 붙여넣으면, 좌측 메뉴의 학기 목록을 자동으로 인식해 모든 학기의 수강 내역을 가져와요. 학기 수에 따라 20~30초 정도 걸릴 수 있어요.
       </div>
+      {!synced && (
+        <div className="mb-4 rounded-xl bg-[#F5F8FF] px-3.5 py-3 text-xs text-brand-text-muted">
+          <span className="font-bold text-brand-blue">⚠️ 시간표 공개범위를 &ldquo;전체공개&rdquo;로 설정해주세요</span> — 비공개거나
+          친구공개면 자동으로 못 가져와요. 에브리타임 앱 &rarr; 시간표 &rarr; 설정(⚙️) &rarr; 공개범위에서 바꿀 수
+          있어요.
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2.5">
         <input
           placeholder="https://everytime.kr/@..."
