@@ -583,6 +583,8 @@ async function main() {
       ],
       trackRestrictionNote: '자격증 대체는 미디어공학트랙 전용 — 트랙미이수자는 이 옵션 없음',
       sourceUrl: 'https://mtc.catholic.ac.kr/mtc/course/academic.do',
+      notes:
+        '[2026-07] 트랙별 세부 인정과목 기능(TrackCourseRecognition) 도입 — 트랙미이수는 그 테이블에 데이터를 두지 않고 기존처럼 전공선택/필수 카테고리 전체를 그대로 합산한다(문화콘텐츠/미디어공학/테크니컬아티스트 3개 실제 트랙만 트랙·영역별로 인정과목이 갈림).',
     },
     {
       id: 3,
@@ -590,7 +592,10 @@ async function main() {
       trackId: 13,
       cohortLabel: '전체(공통)',
       totalCreditMin: 130,
-      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36 },
+      // 기획창작영역/콘텐츠비즈니스영역 최소 3학점은 트랙별_전공인정과목.xlsx(2024.8) 원문 표 3행
+      // "최소 이수 학점" 그대로 — TrackCourseRecognition.area 값과 문자열이 정확히 일치해야
+      // graduation.service.ts의 트랙별 영역 집계가 이 키를 찾아 매칭한다.
+      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36, 기획창작영역: 3, 콘텐츠비즈니스영역: 3 },
       comprehensiveExam: { hasExam: 'N', detail: '졸업종합시험 폐지됨(어학성적만 제출)' },
       substitutionRules: [
         {
@@ -606,7 +611,8 @@ async function main() {
       ],
       trackRestrictionNote: '자격증 대체는 미디어공학트랙만 해당 — 문화콘텐츠트랙은 불가',
       sourceUrl: 'https://mtc.catholic.ac.kr/mtc/course/academic.do',
-      notes: '트랙별 세부 인정과목은 roadmap.do 별도 확인 필요',
+      notes:
+        '[2026-07] 세부 인정과목은 트랙별_전공인정과목.xlsx(2024.8, TrackCourseRecognition 테이블로 임포트)에서 확인 — 기획창작영역/콘텐츠비즈니스영역 각 최소 3학점.',
     },
     {
       id: 4,
@@ -614,7 +620,7 @@ async function main() {
       trackId: 14,
       cohortLabel: '전체(공통)',
       totalCreditMin: 130,
-      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36 },
+      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36, 기초영역: 3, 필수영역: 3, 응용영역: 3 },
       comprehensiveExam: { hasExam: 'N', detail: '졸업종합시험 폐지됨(어학성적만 제출)' },
       substitutionRules: [
         {
@@ -632,7 +638,8 @@ async function main() {
       ],
       trackRestrictionNote: '미디어공학트랙만 자격증 대체 옵션 보유(타 트랙 대비 유일한 차등점)',
       sourceUrl: 'https://mtc.catholic.ac.kr/mtc/course/academic.do',
-      notes: '트랙별 세부 인정과목은 roadmap.do 별도 확인 필요',
+      notes:
+        '[2026-07] 세부 인정과목은 트랙별_전공인정과목.xlsx(2024.8, TrackCourseRecognition 테이블로 임포트)에서 확인 — 기초영역/필수영역/응용영역 각 최소 3학점.',
     },
     {
       id: 5,
@@ -640,7 +647,7 @@ async function main() {
       trackId: 15,
       cohortLabel: '전체(공통)',
       totalCreditMin: 130,
-      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36 },
+      creditBreakdown: { majorDeepMin: 66, doubleMajorMin: 36, 기획창작영역: 6, 콘텐츠비즈니스영역: 6 },
       comprehensiveExam: { hasExam: 'N', detail: '졸업종합시험 폐지됨(어학성적만 제출)' },
       substitutionRules: [
         {
@@ -656,7 +663,8 @@ async function main() {
       ],
       trackRestrictionNote: '자격증 대체는 미디어공학트랙만 해당',
       sourceUrl: 'https://mtc.catholic.ac.kr/mtc/course/academic.do',
-      notes: '테크니컬아티스트트랙 전용 졸업작품 옵션이 원문에 별도로 명시되지 않음 — 학과사무실 확인 권장. 트랙별 세부 인정과목은 roadmap.do 별도 확인 필요',
+      notes:
+        '테크니컬아티스트트랙 전용 졸업작품 옵션이 원문에 별도로 명시되지 않음 — 학과사무실 확인 권장. [2026-07] 세부 인정과목은 트랙별_전공인정과목.xlsx(2024.8, TrackCourseRecognition 테이블로 임포트)에서 확인 — 기획창작영역/콘텐츠비즈니스영역 각 최소 6학점(문화콘텐츠트랙의 2배).',
     },
     // ── 공간디자인·소비자학과 (기존 데이터 유지, id 재부여) ──
     {

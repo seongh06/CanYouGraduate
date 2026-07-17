@@ -62,6 +62,7 @@ model Department {
   secondMajorProfiles    Profile[]                      @relation("SecondMajorDepartment")
   minorProfiles          Profile[]                      @relation("MinorDepartment")
   crossMajorCreditRecognitions CrossMajorCreditRecognition[]
+  trackCourseRecognitions TrackCourseRecognition[]
 
   @@index([universityId])
   @@index([collegeId])
@@ -79,6 +80,7 @@ model Track {
   majorTrackProfiles       Profile[]                      @relation("MajorTrack")
   secondMajorTrackProfiles Profile[]                      @relation("SecondMajorTrack")
   graduationRequirements   CatalogGraduationRequirement[]
+  courseRecognitions       TrackCourseRecognition[]
 
   @@index([departmentId])
   @@map("tracks")
@@ -242,6 +244,29 @@ model CrossMajorCreditRecognition {
 
   @@index([recognizingDepartmentId, courseName])
   @@map("cross_major_credit_recognitions")
+}
+
+// 트랙마다 인정되는 전공선택 과목·세부영역이 다른 학과용(현재는 미디어기술콘텐츠학과만 해당).
+// "트랙별_전공인정과목.xlsx" 임포트 스크립트(scripts/import-track-course-recognition.ts)로 채운다.
+// area는 트랙 내부의 세부 인정 영역(예: "기획창작영역") — CatalogGraduationRequirement.creditBreakdown의
+// 키와 그대로 매칭되어 트랙별 영역 최소학점 판정에 쓰인다([[구현 방식]] 참고). "트랙미이수"(트랙 선택
+// 안 함의 default)는 이 테이블에 데이터를 두지 않고 기존 category 기반 계산을 그대로 쓴다 — 이 테이블에
+// 그 트랙의 행이 하나도 없으면 graduation.service.ts가 자동으로 레거시 계산으로 폴백한다.
+model TrackCourseRecognition {
+  id                     Int     @id @default(autoincrement())
+  departmentId           Int     @map("department_id")
+  trackId                Int     @map("track_id")
+  offeringDepartmentName String? @map("offering_department_name") // null이면 이 학과(departmentId) 개설과목
+  courseCode             String? @map("course_code")
+  courseName             String  @map("course_name")
+  area                   String
+  note                   String?
+
+  department Department @relation(fields: [departmentId], references: [id])
+  track      Track      @relation(fields: [trackId], references: [id])
+
+  @@index([departmentId, trackId])
+  @@map("track_course_recognitions")
 }
 
 // 43개 학과 전수조사(가톨릭대_학과별_졸업요건_스키마_v3.xlsx) 결과 반영. 졸업요건은 학과 단위가 아니라
